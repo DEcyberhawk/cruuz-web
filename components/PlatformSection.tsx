@@ -1,36 +1,37 @@
-import { Building2, Car, Package, Plane, Route, Users } from "lucide-react";
+import { Briefcase, Car, Package, Plane, Route, Users } from "lucide-react";
 
-const services = [
-  { id: "ride", icon: Car, title: "Ride", text: "Safe, affordable, on-demand rides for everyday transport." },
-  { id: "drive", icon: Users, title: "Drive", text: "Driver-partner tools for earnings, safety, and trip management." },
-  { id: "business", icon: Building2, title: "Business", text: "Corporate transport, staff movement, events, and institutions." },
-  { id: "fleet", icon: Route, title: "Fleet", text: "Fleet owner tools for vehicle operations and driver oversight." },
-  { id: "airport", icon: Plane, title: "Airport", text: "Future airport rides, hotel transfers, and scheduled transport." },
-  { id: "delivery", icon: Package, title: "Delivery", text: "Future logistics infrastructure for people, goods, and commerce." },
+const platform = [
+  { id: "ride", icon: Car, title: "Ride", text: "Comfortable rides anytime, anywhere." },
+  { id: "drive", icon: Users, title: "Drive", text: "Flexible earning on your schedule." },
+  { id: "business", icon: Briefcase, title: "Business", text: "Corporate mobility made simple." },
+  { id: "fleet", icon: Route, title: "Fleet", text: "Manage your fleet with ease." },
+  { id: "airport", icon: Plane, title: "Airport", text: "Reliable airport transfers." },
+  { id: "delivery", icon: Package, title: "Delivery", text: "Fast and secure deliveries." },
 ];
 
 export function PlatformSection() {
   return (
-    <section id="platform" className="mx-auto max-w-7xl px-6 py-20">
-      <div className="mb-12 max-w-3xl">
-        <p className="mb-3 text-sm font-bold uppercase tracking-[0.3em] text-violet-300">One Platform</p>
-        <h2 className="text-4xl font-black md:text-6xl">Endless mobility.</h2>
-        <p className="mt-5 text-white/60">
-          CRUUZ is being built as a mobility operating system for riders, drivers, businesses,
-          fleets, logistics, and city operations.
-        </p>
+    <section id="platform" className="mx-auto max-w-7xl px-6 py-14">
+      <div className="text-center">
+        <h2 className="text-3xl font-black md:text-4xl">
+          One Platform. Many{" "}
+          <span className="bg-gradient-to-r from-violet-300 to-fuchsia-400 bg-clip-text text-transparent">
+            Solutions.
+          </span>
+        </h2>
+        <p className="mt-3 text-white/55">Everything you need, in one intelligent platform.</p>
       </div>
 
-      <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-        {services.map((item) => (
+      <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
+        {platform.map((item) => (
           <div
             id={item.id}
             key={item.title}
-            className="group rounded-[2rem] border border-white/10 bg-gradient-to-b from-white/[0.08] to-white/[0.03] p-7 transition hover:-translate-y-1 hover:border-violet-300/40"
+            className="rounded-3xl border border-white/10 bg-white/[0.035] p-6 text-center shadow-lg shadow-black/20 transition hover:-translate-y-1 hover:border-violet-400/40"
           >
-            <item.icon className="mb-6 text-fuchsia-300 transition group-hover:scale-110" size={34} />
-            <h3 className="text-2xl font-black">{item.title}</h3>
-            <p className="mt-4 text-sm leading-7 text-white/60">{item.text}</p>
+            <item.icon className="mx-auto mb-5 text-violet-400" size={36} />
+            <h3 className="font-black">{item.title}</h3>
+            <p className="mt-3 text-sm leading-6 text-white/55">{item.text}</p>
           </div>
         ))}
       </div>

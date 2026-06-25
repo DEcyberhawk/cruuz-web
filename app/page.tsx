@@ -1,4 +1,4 @@
-import { BookingWidget } from "@/components/BookingWidget";
+import { DownloadSection } from "@/components/DownloadSection";
 import { FeatureGrid } from "@/components/FeatureGrid";
 import { Footer } from "@/components/Footer";
 import { Hero } from "@/components/Hero";
@@ -8,13 +8,13 @@ import { SafetySection } from "@/components/SafetySection";
 
 export default function Home() {
   return (
-    <main className="min-h-screen overflow-hidden bg-[#070611] text-white">
+    <main className="min-h-screen overflow-hidden bg-[#05050d] text-white">
       <Navbar />
       <Hero />
-      <BookingWidget />
-      <FeatureGrid />
       <PlatformSection />
+      <FeatureGrid />
       <SafetySection />
+      <DownloadSection />
       <Footer />
     </main>
   );
