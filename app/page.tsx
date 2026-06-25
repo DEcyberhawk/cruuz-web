@@ -1,16 +1,47 @@
 import Image from "next/image";
-import { ArrowRight, Mail } from "lucide-react";
+import { ArrowRight, Car, Clock, CreditCard, Mail, ShieldCheck } from "lucide-react";
+
+const features = [
+  { icon: Car, title: "Smart Rides", text: "Simple, reliable mobility." },
+  { icon: ShieldCheck, title: "Safe Trips", text: "Built around trust." },
+  { icon: Clock, title: "Fast Pickup", text: "Quick and smooth booking." },
+  { icon: CreditCard, title: "Cash & Wallet", text: "Flexible payments." },
+];
+
+const rides = [
+  {
+    name: "CRUUZ GO",
+    text: "Affordable everyday rides.",
+    image: "/assets/vehicles/cruuz-go-front.webp",
+  },
+  {
+    name: "CRUUZ XL",
+    text: "More space for groups and families.",
+    image: "/assets/vehicles/cruuz-xl.webp",
+  },
+  {
+    name: "Executive",
+    text: "Premium rides for business and comfort.",
+    image: "/assets/vehicles/cruuz-go-night.webp",
+  },
+  {
+    name: "Airport",
+    text: "Reliable airport transfers.",
+    image: "/assets/vehicles/cruuz-airport.webp",
+  },
+];
 
 export default function Home() {
   return (
-    <main className="min-h-screen bg-[#0b0d18] text-white">
-      <nav className="fixed inset-x-0 top-0 z-50 bg-[#0b0d18]/80 backdrop-blur-xl">
+    <main className="min-h-screen bg-[#101936] text-white">
+      <nav className="fixed inset-x-0 top-0 z-50 border-b border-white/10 bg-[#101936]/70 backdrop-blur-xl">
         <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-6">
           <a href="#" className="text-2xl font-black tracking-tight">
             CRUUZ
           </a>
 
-          <div className="flex items-center gap-5 text-sm font-semibold text-white/70">
+          <div className="flex items-center gap-6 text-sm font-semibold text-white/75">
+            <a href="#rides" className="hover:text-white">Ride</a>
             <a href="#download" className="hover:text-white">Download</a>
             <a href="mailto:info@cruuz.org" className="hover:text-white">Contact</a>
           </div>
@@ -23,41 +54,41 @@ export default function Home() {
           alt="CRUUZ"
           fill
           priority
-          className="object-cover opacity-80"
+          className="object-cover opacity-90"
         />
 
-        <div className="absolute inset-0 bg-gradient-to-r from-[#0b0d18] via-[#0b0d18]/75 to-transparent" />
-        <div className="absolute inset-0 bg-gradient-to-t from-[#0b0d18] via-transparent to-[#0b0d18]/40" />
+        <div className="absolute inset-0 bg-gradient-to-r from-[#101936]/95 via-[#101936]/60 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#101936] via-transparent to-[#101936]/35" />
 
         <div className="relative mx-auto flex min-h-[calc(100vh-6rem)] max-w-7xl items-center">
           <div className="max-w-2xl">
-            <p className="mb-5 text-sm font-bold uppercase tracking-[0.35em] text-violet-300">
+            <p className="mb-5 text-sm font-black uppercase tracking-[0.35em] text-violet-300">
               Smart. Secure. Rewarding.
             </p>
 
             <h1 className="text-6xl font-black leading-[0.95] tracking-tight md:text-8xl">
               Move{" "}
-              <span className="block bg-gradient-to-r from-violet-300 to-fuchsia-400 bg-clip-text text-transparent">
+              <span className="block bg-gradient-to-r from-violet-300 to-fuchsia-300 bg-clip-text text-transparent">
                 Smarter.
               </span>
             </h1>
 
-            <p className="mt-6 max-w-xl text-lg leading-8 text-white/72">
-              CRUUZ is a smart mobility platform connecting riders, drivers and
-              businesses through safe and reliable transport.
+            <p className="mt-6 max-w-xl text-lg leading-8 text-white/78">
+              CRUUZ connects riders, drivers and businesses through safe,
+              reliable and rewarding transport.
             </p>
 
             <div className="mt-8 flex flex-col gap-4 sm:flex-row">
               <a
                 href="#download"
-                className="inline-flex items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-violet-500 to-fuchsia-500 px-7 py-4 font-black"
+                className="inline-flex items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-violet-500 to-fuchsia-500 px-7 py-4 font-black shadow-xl shadow-violet-700/25"
               >
                 App Coming Soon <ArrowRight size={18} />
               </a>
 
               <a
                 href="mailto:info@cruuz.org"
-                className="inline-flex items-center justify-center gap-3 rounded-2xl border border-white/20 bg-white/10 px-7 py-4 font-black backdrop-blur"
+                className="inline-flex items-center justify-center gap-3 rounded-2xl border border-white/20 bg-white/10 px-7 py-4 font-black backdrop-blur hover:bg-white/15"
               >
                 Contact CRUUZ <Mail size={18} />
               </a>
@@ -66,34 +97,96 @@ export default function Home() {
         </div>
       </section>
 
-      <section id="download" className="px-6 py-20">
-        <div className="mx-auto max-w-5xl rounded-[2rem] border border-white/10 bg-white/[0.05] p-8 text-center md:p-12">
-          <h2 className="text-4xl font-black">CRUUZ app coming soon.</h2>
-          <p className="mx-auto mt-4 max-w-xl leading-8 text-white/60">
-            Join our launch list and be among the first to experience CRUUZ on
-            Android and iOS.
+      <section className="bg-[#f4f0ff] px-6 py-12 text-[#12172f]">
+        <div className="mx-auto grid max-w-7xl gap-6 md:grid-cols-4">
+          {features.map((item) => (
+            <div key={item.title} className="flex items-start gap-4">
+              <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-violet-600 text-white">
+                <item.icon size={22} />
+              </div>
+              <div>
+                <h3 className="font-black">{item.title}</h3>
+                <p className="mt-1 text-sm text-slate-600">{item.text}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section id="rides" className="mx-auto max-w-7xl px-6 py-16">
+        <div className="mb-8 text-center">
+          <p className="text-sm font-black uppercase tracking-[0.3em] text-violet-300">
+            Ride Options
           </p>
+          <h2 className="mt-3 text-4xl font-black">Choose your CRUUZ.</h2>
+        </div>
 
-          <div className="mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row">
-            <a
-              href="mailto:info@cruuz.org"
-              className="rounded-2xl bg-white px-7 py-4 font-black text-black"
+        <div className="grid gap-5 md:grid-cols-4">
+          {rides.map((ride) => (
+            <article
+              key={ride.name}
+              className="overflow-hidden rounded-[1.7rem] border border-white/10 bg-white/[0.06]"
             >
-              Join Launch List
-            </a>
+              <div className="relative h-44">
+                <Image
+                  src={ride.image}
+                  alt={ride.name}
+                  fill
+                  className="object-cover"
+                />
+              </div>
+              <div className="p-5">
+                <h3 className="font-black">{ride.name}</h3>
+                <p className="mt-2 text-sm leading-6 text-white/60">
+                  {ride.text}
+                </p>
+              </div>
+            </article>
+          ))}
+        </div>
+      </section>
 
-            <a
-              href="mailto:support@cruuz.org"
-              className="rounded-2xl border border-white/20 px-7 py-4 font-black"
-            >
-              support@cruuz.org
-            </a>
+      <section id="download" className="mx-auto max-w-7xl px-6 pb-16">
+        <div className="grid overflow-hidden rounded-[2rem] border border-white/10 bg-gradient-to-br from-[#1a2554] to-[#5b21b6] md:grid-cols-2">
+          <div className="p-8 md:p-12">
+            <p className="text-sm font-black uppercase tracking-[0.3em] text-violet-200">
+              Coming Soon
+            </p>
+            <h2 className="mt-3 text-4xl font-black">The CRUUZ App</h2>
+            <p className="mt-4 max-w-md leading-8 text-white/75">
+              Join the launch list and be among the first to experience CRUUZ
+              on Android and iOS.
+            </p>
+
+            <div className="mt-7 flex flex-wrap gap-3">
+              <Image
+                src="/assets/stores/google-play.svg"
+                alt="Google Play"
+                width={170}
+                height={50}
+              />
+              <Image
+                src="/assets/stores/app-store.svg"
+                alt="App Store"
+                width={150}
+                height={44}
+              />
+            </div>
+          </div>
+
+          <div className="relative min-h-[320px]">
+            <Image
+              src="/assets/phones/iphone-perspective.webp"
+              alt="CRUUZ app phone"
+              fill
+              className="object-contain p-8 drop-shadow-[0_30px_80px_rgba(0,0,0,0.45)]"
+            />
           </div>
         </div>
       </section>
 
       <footer className="border-t border-white/10 px-6 py-8">
-        <div className="mx-auto flex max-w-7xl flex-col justify-between gap-4 text-sm text-white/45 md:flex-row">
+        <div className="mx-auto flex max-w-7xl flex-col justify-between gap-4 text-sm text-white/55 md:flex-row">
           <p>© {new Date().getFullYear()} CRUUZ. Powered by Nexaro.</p>
           <p>info@cruuz.org · support@cruuz.org</p>
         </div>
