@@ -1,18 +1,25 @@
 import Image from "next/image";
-import { ArrowRight, Car, Clock, CreditCard, Mail, ShieldCheck } from "lucide-react";
+import {
+  ArrowRight,
+  Car,
+  Clock,
+  CreditCard,
+  Mail,
+  ShieldCheck,
+} from "lucide-react";
 
 const features = [
-  { icon: Car, title: "Smart Rides", text: "Simple, reliable mobility." },
-  { icon: ShieldCheck, title: "Safe Trips", text: "Built around trust." },
-  { icon: Clock, title: "Fast Pickup", text: "Quick and smooth booking." },
-  { icon: CreditCard, title: "Cash & Wallet", text: "Flexible payments." },
+  { icon: Car, title: "Smart Rides", text: "Reliable mobility made simple." },
+  { icon: ShieldCheck, title: "Safe Trips", text: "Verified and trusted rides." },
+  { icon: Clock, title: "Fast Pickup", text: "Quick booking and smooth pickup." },
+  { icon: CreditCard, title: "Cash & Wallet", text: "Flexible payment options." },
 ];
 
 const rides = [
   {
     name: "CRUUZ GO",
     text: "Affordable everyday rides.",
-    image: "/assets/vehicles/cruuz-go-front.webp",
+    image: "/assets/vehicles/cruuz-go.webp",
   },
   {
     name: "CRUUZ XL",
@@ -22,7 +29,7 @@ const rides = [
   {
     name: "Executive",
     text: "Premium rides for business and comfort.",
-    image: "/assets/vehicles/cruuz-go-night.webp",
+    image: "/assets/vehicles/cruuz-executive.webp",
   },
   {
     name: "Airport",
@@ -34,7 +41,7 @@ const rides = [
 export default function Home() {
   return (
     <main className="min-h-screen bg-[#101936] text-white">
-      <nav className="fixed inset-x-0 top-0 z-50 border-b border-white/10 bg-[#101936]/70 backdrop-blur-xl">
+      <nav className="fixed inset-x-0 top-0 z-50 border-b border-white/10 bg-[#101936]/65 backdrop-blur-xl">
         <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-6">
           <a href="#" className="text-2xl font-black tracking-tight">
             CRUUZ
@@ -50,20 +57,20 @@ export default function Home() {
 
       <section className="relative min-h-screen overflow-hidden px-6 pt-24">
         <Image
-          src="/assets/hero/cruuz-signature-hero.webp"
-          alt="CRUUZ"
+          src="/assets/hero/hero-background-v1.webp"
+          alt="CRUUZ hero"
           fill
           priority
-          className="object-cover opacity-90"
+          className="object-cover opacity-95"
         />
 
-        <div className="absolute inset-0 bg-gradient-to-r from-[#101936]/95 via-[#101936]/60 to-transparent" />
-        <div className="absolute inset-0 bg-gradient-to-t from-[#101936] via-transparent to-[#101936]/35" />
+        <div className="absolute inset-0 bg-gradient-to-r from-[#101936]/95 via-[#101936]/55 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#101936] via-transparent to-[#101936]/25" />
 
         <div className="relative mx-auto flex min-h-[calc(100vh-6rem)] max-w-7xl items-center">
           <div className="max-w-2xl">
-            <p className="mb-5 text-sm font-black uppercase tracking-[0.35em] text-violet-300">
-              Smart. Secure. Rewarding.
+            <p className="mb-4 text-sm font-black uppercase tracking-[0.35em] text-violet-300">
+              The future of urban mobility
             </p>
 
             <h1 className="text-6xl font-black leading-[0.95] tracking-tight md:text-8xl">
@@ -72,6 +79,18 @@ export default function Home() {
                 Smarter.
               </span>
             </h1>
+
+            <div className="mt-6 inline-flex max-w-md items-center gap-4 rounded-2xl border border-white/15 bg-white/10 px-5 py-4 backdrop-blur-xl">
+              <span className="text-3xl">🇬🇭</span>
+              <div>
+                <p className="text-sm font-black uppercase tracking-[0.18em] text-white">
+                  Proudly Ghanaian
+                </p>
+                <p className="mt-1 text-sm text-white/70">
+                  Built for Africa. Ready for the World.
+                </p>
+              </div>
+            </div>
 
             <p className="mt-6 max-w-xl text-lg leading-8 text-white/78">
               CRUUZ connects riders, drivers and businesses through safe,
@@ -97,7 +116,7 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="bg-[#f4f0ff] px-6 py-12 text-[#12172f]">
+      <section className="bg-[#f5f2ff] px-6 py-10 text-[#12172f]">
         <div className="mx-auto grid max-w-7xl gap-6 md:grid-cols-4">
           {features.map((item) => (
             <div key={item.title} className="flex items-start gap-4">
@@ -113,7 +132,7 @@ export default function Home() {
         </div>
       </section>
 
-      <section id="rides" className="mx-auto max-w-7xl px-6 py-16">
+      <section id="rides" className="mx-auto max-w-7xl px-6 py-14">
         <div className="mb-8 text-center">
           <p className="text-sm font-black uppercase tracking-[0.3em] text-violet-300">
             Ride Options
@@ -125,14 +144,14 @@ export default function Home() {
           {rides.map((ride) => (
             <article
               key={ride.name}
-              className="overflow-hidden rounded-[1.7rem] border border-white/10 bg-white/[0.06]"
+              className="overflow-hidden rounded-[1.7rem] border border-white/10 bg-white/[0.06] transition hover:-translate-y-1 hover:bg-white/[0.09]"
             >
               <div className="relative h-44">
                 <Image
                   src={ride.image}
                   alt={ride.name}
                   fill
-                  className="object-cover"
+                  className="object-cover transition duration-500 hover:scale-105"
                 />
               </div>
               <div className="p-5">
@@ -147,13 +166,13 @@ export default function Home() {
       </section>
 
       <section id="download" className="mx-auto max-w-7xl px-6 pb-16">
-        <div className="grid overflow-hidden rounded-[2rem] border border-white/10 bg-gradient-to-br from-[#1a2554] to-[#5b21b6] md:grid-cols-2">
+        <div className="grid overflow-hidden rounded-[2rem] border border-white/10 bg-gradient-to-br from-[#1a2554] via-[#2b2f77] to-[#6d28d9] md:grid-cols-[0.9fr_1.1fr]">
           <div className="p-8 md:p-12">
             <p className="text-sm font-black uppercase tracking-[0.3em] text-violet-200">
               Coming Soon
             </p>
             <h2 className="mt-3 text-4xl font-black">The CRUUZ App</h2>
-            <p className="mt-4 max-w-md leading-8 text-white/75">
+            <p className="mt-4 max-w-md leading-8 text-white/78">
               Join the launch list and be among the first to experience CRUUZ
               on Android and iOS.
             </p>
@@ -174,12 +193,18 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="relative min-h-[320px]">
+          <div className="relative min-h-[430px]">
             <Image
-              src="/assets/phones/iphone-perspective.webp"
+              src="/assets/ui/hero-phone-glow.png"
+              alt=""
+              fill
+              className="object-contain opacity-80"
+            />
+            <Image
+              src="/assets/phones/hero-phone.webp"
               alt="CRUUZ app phone"
               fill
-              className="object-contain p-8 drop-shadow-[0_30px_80px_rgba(0,0,0,0.45)]"
+              className="object-contain p-4 drop-shadow-[0_35px_90px_rgba(0,0,0,0.5)]"
             />
           </div>
         </div>
