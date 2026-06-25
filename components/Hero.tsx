@@ -64,7 +64,7 @@ export function Hero() {
               [ShieldCheck, "Safe", "Always Priority"],
             ].map(([Icon, value, label]) => (
               <div key={String(label)} className="border-l border-white/10 pl-4">
-                {/* @ts-expect-error icon component */}
+               
                 <Icon className="mb-2 text-white/75" size={20} />
                 <p className="font-black">{String(value)}</p>
                 <p className="text-xs text-white/45">{String(label)}</p>
