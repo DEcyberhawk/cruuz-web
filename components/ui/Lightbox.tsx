@@ -20,11 +20,13 @@ export default function Lightbox({ image, title, children }: LightboxProps) {
 
     if (open) {
       document.body.style.overflow = "hidden";
+      document.body.style.paddingRight = "15px";
       window.addEventListener("keydown", onKeyDown);
     }
 
     return () => {
       document.body.style.overflow = "";
+document.body.style.paddingRight = "";
       window.removeEventListener("keydown", onKeyDown);
     };
   }, [open]);
