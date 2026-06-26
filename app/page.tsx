@@ -95,12 +95,7 @@ export default function Home() {
 
           <div className="relative hidden min-h-[560px] lg:block">
             <div className="absolute right-24 top-10 h-[390px] w-[240px] rotate-[7deg]">
-              <Image
-                src="/assets/ui/hero-phone-glow.png"
-                alt=""
-                fill
-                className="object-contain opacity-80"
-              />
+             <div className="absolute inset-0 rounded-full bg-violet-500/30 blur-3xl" />
               <Image
                 src="/assets/phones/hero-phone.webp"
                 alt="CRUUZ app phone"
@@ -184,22 +179,24 @@ export default function Home() {
                 Join Launch List
               </a>
 
-              <Image
-                src="/assets/stores/app-store.svg"
-                alt="App Store"
-                width={150}
-                height={44}
-              />
+             <a
+  href="mailto:info@cruuz.org"
+  className="rounded-2xl border border-white/25 bg-black/30 px-6 py-4 font-black text-white"
+>
+  App Store
+</a>
+
+<a
+  href="mailto:info@cruuz.org"
+  className="rounded-2xl border border-white/25 bg-black/30 px-6 py-4 font-black text-white"
+>
+  Google Play
+</a>
             </div>
           </div>
 
           <div className="relative min-h-[470px]">
-            <Image
-              src="/assets/ui/hero-phone-glow.png"
-              alt=""
-              fill
-              className="object-contain opacity-80"
-            />
+            <div className="absolute inset-10 rounded-full bg-violet-500/30 blur-3xl" />
             <Image
               src="/assets/phones/hero-phone.webp"
               alt="CRUUZ app phone"
