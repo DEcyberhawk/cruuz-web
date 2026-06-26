@@ -73,7 +73,7 @@ export default function Hero() {
     />
   </div>
 
-  <div className="absolute bottom-4 right-0 h-[380px] w-[760px]">
+<div className="absolute bottom-4 right-0 h-[380px] w-[760px] animate-[floatCar_8s_ease-in-out_infinite]">
     <div className="absolute inset-x-20 bottom-4 h-28 rounded-full bg-violet-500/30 blur-3xl" />
 
     <Image
