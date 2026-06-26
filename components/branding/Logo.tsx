@@ -5,10 +5,7 @@ type LogoProps = {
   priority?: boolean;
 };
 
-export default function Logo({
-  size = 56,
-  priority = false,
-}: LogoProps) {
+export default function Logo({ size = 70, priority = false }: LogoProps) {
   return (
     <Image
       src="/assets/logos/CRUUZ_logo.png"
