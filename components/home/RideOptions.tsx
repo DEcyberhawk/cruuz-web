@@ -1,57 +1,54 @@
 "use client";
 
-import Image from "next/image";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { useRef } from "react";
-
-const rides = [
-  {
-    name: "CRUUZ GO",
-    text: "Affordable everyday rides.",
-    image: "/assets/vehicles/cruuz-go-front.webp",
-    meta: "4 Seats • City rides",
-  },
-  {
-    name: "CRUUZ XL",
-    text: "More space for groups and families.",
-    image: "/assets/vehicles/cruuz-xl.webp",
-    meta: "6–7 Seats • Groups",
-  },
-  {
-    name: "Executive",
-    text: "Premium rides for business and comfort.",
-    image: "/assets/vehicles/cruuz-executive.webp",
-    meta: "4 Seats • Premium",
-  },
-  {
-    name: "Airport",
-    text: "Reliable airport transfers.",
-    image: "/assets/vehicles/cruuz-airport.webp",
-    meta: "Airport • Luggage",
-  },
-  {
-    name: "Business",
-    text: "Smart transport for teams and companies.",
-    image: "/assets/vehicles/cruuz-business.webp",
-    meta: "Corporate • Teams",
-  },
-  {
-    name: "Delivery",
-    text: "Fast movement for packages and essentials.",
-    image: "/assets/vehicles/cruuz-delivery.webp",
-    meta: "Parcels • Essentials",
-  },
-];
+import { useEffect, useRef, useState } from "react";
+import { rides } from "@/lib/rides";
+import RideCard from "./RideCard";
 
 export default function RideOptions() {
   const sliderRef = useRef<HTMLDivElement>(null);
+  const [active, setActive] = useState(0);
+  const [paused, setPaused] = useState(false);
 
-  function scrollSlider(direction: "left" | "right") {
-    sliderRef.current?.scrollBy({
-      left: direction === "left" ? -330 : 330,
+  function scrollToIndex(index: number) {
+    const slider = sliderRef.current;
+    if (!slider) return;
+
+    const cardWidth = 340;
+    slider.scrollTo({
+      left: index * cardWidth,
       behavior: "smooth",
     });
+
+    setActive(index);
   }
+
+  function scrollSlider(direction: "left" | "right") {
+    const nextIndex =
+      direction === "left"
+        ? active === 0
+          ? rides.length - 1
+          : active - 1
+        : active === rides.length - 1
+          ? 0
+          : active + 1;
+
+    scrollToIndex(nextIndex);
+  }
+
+  useEffect(() => {
+    if (paused) return;
+
+    const timer = setInterval(() => {
+      setActive((current) => {
+        const nextIndex = current === rides.length - 1 ? 0 : current + 1;
+        scrollToIndex(nextIndex);
+        return nextIndex;
+      });
+    }, 5000);
+
+    return () => clearInterval(timer);
+  }, [paused]);
 
   return (
     <section id="rides" className="px-6 py-14">
@@ -84,38 +81,25 @@ export default function RideOptions() {
 
       <div
         ref={sliderRef}
+        onMouseEnter={() => setPaused(true)}
+        onMouseLeave={() => setPaused(false)}
         className="mx-auto flex max-w-7xl snap-x gap-5 overflow-x-auto scroll-smooth pb-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
         {rides.map((ride) => (
-          <article
+          <RideCard key={ride.name} {...ride} />
+        ))}
+      </div>
+
+      <div className="mt-4 flex justify-center gap-2">
+        {rides.map((ride, index) => (
+          <button
             key={ride.name}
-            className="min-w-[280px] snap-start overflow-hidden rounded-[1.7rem] border border-white/10 bg-white/[0.06] transition duration-300 hover:-translate-y-1 hover:bg-white/[0.09] md:min-w-[320px]"
-          >
-            <div className="relative h-44 bg-[#0b1026]">
-              <Image
-                src={ride.image}
-                alt={ride.name}
-                fill
-                className="object-cover transition duration-500 hover:scale-105"
-              />
-            </div>
-
-            <div className="p-5">
-              <div className="mb-3 inline-flex rounded-full bg-violet-500/20 px-3 py-1 text-xs font-black text-violet-200">
-                Coming Soon
-              </div>
-
-              <h3 className="text-xl font-black">{ride.name}</h3>
-
-              <p className="mt-2 text-sm leading-6 text-white/60">
-                {ride.text}
-              </p>
-
-              <p className="mt-4 text-xs font-bold uppercase tracking-[0.18em] text-white/45">
-                {ride.meta}
-              </p>
-            </div>
-          </article>
+            onClick={() => scrollToIndex(index)}
+            className={`h-2.5 rounded-full transition-all ${
+              active === index ? "w-8 bg-violet-400" : "w-2.5 bg-white/25"
+            }`}
+            aria-label={`Go to ${ride.name}`}
+          />
         ))}
       </div>
     </section>
