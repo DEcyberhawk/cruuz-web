@@ -94,16 +94,7 @@ export default function Home() {
           </div>
 
           <div className="relative hidden min-h-[560px] lg:block">
-            <div className="absolute right-24 top-10 h-[390px] w-[240px] rotate-[7deg]">
-             <div className="absolute inset-0 rounded-full bg-violet-500/30 blur-3xl" />
-              <Image
-                src="/assets/phones/hero-phone.webp"
-                alt="CRUUZ app phone"
-                fill
-                priority
-                className="object-contain drop-shadow-[0_35px_85px_rgba(0,0,0,0.65)]"
-              />
-            </div>
+            
 
             <div className="absolute bottom-2 right-0 h-[300px] w-[650px]">
               <Image
@@ -197,12 +188,7 @@ export default function Home() {
 
           <div className="relative min-h-[470px]">
             <div className="absolute inset-10 rounded-full bg-violet-500/30 blur-3xl" />
-            <Image
-              src="/assets/phones/hero-phone.webp"
-              alt="CRUUZ app phone"
-              fill
-              className="object-contain p-2 drop-shadow-[0_35px_90px_rgba(0,0,0,0.5)]"
-            />
+           
           </div>
         </div>
       </section>
