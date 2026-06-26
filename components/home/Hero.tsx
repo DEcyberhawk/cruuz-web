@@ -59,18 +59,32 @@ export default function Hero() {
           </div>
         </div>
 
-        <div className="relative hidden min-h-[520px] lg:block">
-          <div className="absolute bottom-0 right-0 h-[330px] w-[720px]">
-            <div className="absolute inset-x-10 bottom-4 h-24 rounded-full bg-violet-500/25 blur-3xl" />
-            <Image
-              src="/assets/vehicles/cruuz-executive.webp"
-              alt="CRUUZ Executive vehicle"
-              fill
-              priority
-              className="object-contain object-bottom drop-shadow-[0_45px_100px_rgba(0,0,0,0.8)]"
-            />
-          </div>
-        </div>
+       <div className="relative hidden min-h-[560px] lg:block">
+  <div className="absolute right-8 top-16 rounded-full border border-white/10 bg-white/10 px-5 py-3 text-sm font-black backdrop-blur-xl">
+    Launching Soon
+  </div>
+
+  <div className="absolute bottom-8 right-0 h-[190px] w-[680px] overflow-hidden rounded-[3rem] opacity-55">
+    <Image
+      src="/assets/hero/hero-road-glow.webp"
+      alt=""
+      fill
+      className="object-cover"
+    />
+  </div>
+
+  <div className="absolute bottom-4 right-0 h-[380px] w-[760px]">
+    <div className="absolute inset-x-20 bottom-4 h-28 rounded-full bg-violet-500/30 blur-3xl" />
+
+    <Image
+      src="/assets/vehicles/cruuz-executive.webp"
+      alt="CRUUZ Executive vehicle"
+      fill
+      priority
+      className="object-contain object-bottom drop-shadow-[0_45px_100px_rgba(0,0,0,0.85)]"
+    />
+  </div>
+</div>
       </div>
     </section>
   );
