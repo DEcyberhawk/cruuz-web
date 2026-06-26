@@ -1,12 +1,5 @@
 import Image from "next/image";
-import {
-  ArrowRight,
-  Car,
-  Clock,
-  CreditCard,
-  Mail,
-  ShieldCheck,
-} from "lucide-react";
+import { ArrowRight, Car, Clock, CreditCard, Mail, ShieldCheck } from "lucide-react";
 
 const features = [
   { icon: Car, title: "Smart Rides", text: "Reliable mobility made simple." },
@@ -25,9 +18,9 @@ const rides = [
 export default function Home() {
   return (
     <main className="min-h-screen bg-[#101936] text-white">
-      <nav className="fixed inset-x-0 top-0 z-50 border-b border-white/10 bg-[#101936]/75 backdrop-blur-xl">
+      <nav className="fixed inset-x-0 top-0 z-50 border-b border-white/10 bg-[#101936]/80 backdrop-blur-xl">
         <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-6">
-          <a href="#" className="text-2xl font-black tracking-tight">CRUUZ</a>
+          <a href="#" className="text-2xl font-black">CRUUZ</a>
 
           <div className="flex items-center gap-6 text-sm font-semibold text-white/75">
             <a href="#rides" className="hover:text-white">Ride</a>
@@ -46,10 +39,10 @@ export default function Home() {
           className="object-cover"
         />
 
-        <div className="absolute inset-0 bg-gradient-to-r from-[#101936]/95 via-[#101936]/65 to-[#101936]/15" />
-        <div className="absolute inset-0 bg-gradient-to-t from-[#101936] via-transparent to-[#101936]/30" />
+        <div className="absolute inset-0 bg-gradient-to-r from-[#101936]/95 via-[#101936]/62 to-[#101936]/15" />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#101936] via-transparent to-[#101936]/35" />
 
-        <div className="relative mx-auto grid min-h-[calc(100vh-6rem)] max-w-7xl items-center gap-10 lg:grid-cols-[0.85fr_1.15fr]">
+        <div className="relative mx-auto grid min-h-[calc(100vh-6rem)] max-w-7xl items-center gap-10 lg:grid-cols-[0.9fr_1.1fr]">
           <div className="z-20 max-w-2xl">
             <p className="mb-4 text-sm font-black uppercase tracking-[0.35em] text-violet-200">
               The future of urban mobility
@@ -62,7 +55,7 @@ export default function Home() {
               </span>
             </h1>
 
-            <div className="relative mt-6 h-[90px] w-full max-w-[410px]">
+            <div className="relative mt-6 h-[88px] w-full max-w-[410px]">
               <Image
                 src="/assets/badges/ghana-badge.webp"
                 alt="Proudly Ghanaian"
@@ -93,16 +86,15 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="relative hidden min-h-[560px] lg:block">
-            
-
-            <div className="absolute bottom-2 right-0 h-[300px] w-[650px]">
+          <div className="relative hidden min-h-[520px] lg:block">
+            <div className="absolute bottom-0 right-0 h-[330px] w-[720px]">
+              <div className="absolute inset-x-10 bottom-4 h-24 rounded-full bg-violet-500/25 blur-3xl" />
               <Image
                 src="/assets/vehicles/cruuz-executive.webp"
                 alt="CRUUZ Executive vehicle"
                 fill
                 priority
-                className="object-contain drop-shadow-[0_45px_100px_rgba(0,0,0,0.75)]"
+                className="object-contain object-bottom drop-shadow-[0_45px_100px_rgba(0,0,0,0.8)]"
               />
             </div>
           </div>
@@ -135,7 +127,10 @@ export default function Home() {
 
         <div className="grid gap-5 md:grid-cols-4">
           {rides.map((ride) => (
-            <article key={ride.name} className="overflow-hidden rounded-[1.7rem] border border-white/10 bg-white/[0.06]">
+            <article
+              key={ride.name}
+              className="overflow-hidden rounded-[1.7rem] border border-white/10 bg-white/[0.06] transition duration-300 hover:-translate-y-1 hover:bg-white/[0.09]"
+            >
               <div className="relative h-44">
                 <Image src={ride.image} alt={ride.name} fill className="object-cover" />
               </div>
@@ -149,46 +144,27 @@ export default function Home() {
       </section>
 
       <section id="download" className="mx-auto max-w-7xl px-6 pb-16">
-        <div className="grid overflow-hidden rounded-[2rem] border border-white/10 bg-gradient-to-br from-[#1a2554] via-[#2b2f77] to-[#6d28d9] md:grid-cols-2">
-          <div className="flex flex-col justify-center p-8 md:p-12">
-            <p className="text-sm font-black uppercase tracking-[0.3em] text-violet-200">
-              Coming Soon
-            </p>
+        <div className="rounded-[2rem] border border-white/10 bg-gradient-to-br from-[#1a2554] via-[#2b2f77] to-[#6d28d9] p-8 md:p-12">
+          <p className="text-sm font-black uppercase tracking-[0.3em] text-violet-200">
+            Coming Soon
+          </p>
 
-            <h2 className="mt-3 text-4xl font-black">The CRUUZ App</h2>
+          <h2 className="mt-3 text-4xl font-black">The CRUUZ App</h2>
 
-            <p className="mt-4 max-w-md leading-8 text-white/78">
-              Join the launch list and be among the first to experience CRUUZ
-              on Android and iOS.
-            </p>
+          <p className="mt-4 max-w-2xl leading-8 text-white/78">
+            Join the launch list and be among the first to experience CRUUZ on Android and iOS.
+          </p>
 
-            <div className="mt-7 flex flex-wrap items-center gap-4">
-              <a
-                href="mailto:info@cruuz.org"
-                className="rounded-2xl bg-white px-7 py-4 font-black text-[#11172f]"
-              >
-                Join Launch List
-              </a>
-
-             <a
-  href="mailto:info@cruuz.org"
-  className="rounded-2xl border border-white/25 bg-black/30 px-6 py-4 font-black text-white"
->
-  App Store
-</a>
-
-<a
-  href="mailto:info@cruuz.org"
-  className="rounded-2xl border border-white/25 bg-black/30 px-6 py-4 font-black text-white"
->
-  Google Play
-</a>
-            </div>
-          </div>
-
-          <div className="relative min-h-[470px]">
-            <div className="absolute inset-10 rounded-full bg-violet-500/30 blur-3xl" />
-           
+          <div className="mt-7 flex flex-wrap items-center gap-4">
+            <a href="mailto:info@cruuz.org" className="rounded-2xl bg-white px-7 py-4 font-black text-[#11172f]">
+              Join Launch List
+            </a>
+            <a href="mailto:info@cruuz.org" className="rounded-2xl border border-white/25 bg-black/25 px-7 py-4 font-black text-white">
+              App Store
+            </a>
+            <a href="mailto:info@cruuz.org" className="rounded-2xl border border-white/25 bg-black/25 px-7 py-4 font-black text-white">
+              Google Play
+            </a>
           </div>
         </div>
       </section>
