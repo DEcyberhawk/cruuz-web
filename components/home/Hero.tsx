@@ -86,6 +86,13 @@ export default function Hero() {
   </div>
 </div>
       </div>
+    <a
+  href="#rides"
+  className="absolute bottom-6 left-1/2 hidden -translate-x-1/2 flex-col items-center gap-2 text-xs font-black uppercase tracking-[0.25em] text-white/55 transition hover:text-white md:flex"
+>
+  <span>Explore CRUUZ</span>
+  <span className="h-8 w-px animate-pulse bg-violet-300" />
+</a>
     </section>
   );
 }
