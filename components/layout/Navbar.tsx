@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-
+import Logo from "@/components/branding/Logo";
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
 
@@ -23,10 +23,14 @@ export default function Navbar() {
           : "bg-transparent"
       }`}
     >
-      <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-6">
-        <a href="#" className="text-2xl font-black tracking-tight">
-          CRUUZ
-        </a>
+      <div className="mx-auto flex h-24 max-w-7xl items-center justify-between px-6">
+        <a
+  href="/"
+  className="flex items-center transition-transform duration-300 hover:scale-105"
+  aria-label="CRUUZ Home"
+>
+  <Logo size={50} priority />
+</a>
 
         <div className="hidden items-center gap-7 text-sm font-semibold text-white/75 md:flex">
           <a href="#rides" className="transition hover:text-white">
