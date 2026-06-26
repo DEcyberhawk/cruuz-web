@@ -1,11 +1,11 @@
 import Image from "next/image";
 import { ArrowRight, Mail } from "lucide-react";
-
+import { assets } from "@/lib/assets";
 export default function Hero() {
   return (
     <section className="relative min-h-screen overflow-hidden px-6 pt-24">
       <Image
-        src="/assets/hero/hero-background-v1.webp"
+        src="assets.hero.background"
         alt="CRUUZ hero"
         fill
         priority
@@ -30,7 +30,7 @@ export default function Hero() {
 
           <div className="relative mt-6 h-[88px] w-full max-w-[410px]">
             <Image
-              src="/assets/badges/ghana-badge.webp"
+              src={assets.badges.ghana}
               alt="Proudly Ghanaian"
               fill
               className="object-contain object-left"
@@ -66,7 +66,7 @@ export default function Hero() {
 
   <div className="absolute bottom-8 right-0 h-[190px] w-[680px] overflow-hidden rounded-[3rem] opacity-55">
     <Image
-      src="/assets/hero/hero-road-glow.webp"
+      src={assets.hero.roadGlow}
       alt=""
       fill
       className="object-cover"
@@ -77,7 +77,7 @@ export default function Hero() {
     <div className="absolute inset-x-20 bottom-4 h-28 rounded-full bg-violet-500/30 blur-3xl" />
 
     <Image
-      src="/assets/vehicles/cruuz-executive.webp"
+      src={assets.vehicles.executive}
       alt="CRUUZ Executive vehicle"
       fill
       priority

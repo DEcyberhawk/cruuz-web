@@ -1,5 +1,5 @@
 import Image from "next/image";
-
+import { assets } from "@/lib/assets";
 export default function Download() {
   return (
     <section id="download" className="mx-auto max-w-7xl px-6 pb-16">
@@ -36,7 +36,7 @@ export default function Download() {
           <div className="absolute inset-10 rounded-full bg-violet-400/30 blur-3xl" />
          <div className="absolute bottom-0 right-8 h-[590px] w-[420px] rotate-[-5deg] lg:right-12">
   <Image
-    src="/assets/phones/cruuz-app-phone-large.webp"
+    src={assets.phones.appLarge}
     alt="CRUUZ App"
     fill
     priority

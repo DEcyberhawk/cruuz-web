@@ -5,27 +5,28 @@ import { useState } from "react";
 import Heading from "@/components/ui/Heading";
 import Section from "@/components/ui/Section";
 import GalleryModal from "@/components/ui/GalleryModal";
+import { assets } from "@/lib/assets";
 
 const items = [
   {
     title: "Rider App",
     text: "Book rides, track drivers and move with confidence.",
-    image: "/assets/screenshots/rider-dashboard.webp",
+    image: assets.screenshots.rider,
   },
   {
     title: "Driver App",
     text: "Accept trips, manage earnings and grow with CRUUZ.",
-    image: "/assets/screenshots/driver-dashboard.webp",
+    image: assets.screenshots.driver,
   },
   {
     title: "Business Dashboard",
     text: "Manage corporate travel, fleets, invoices and analytics.",
-    image: "/assets/screenshots/business-dashboard.webp",
+    image: assets.screenshots.business,
   },
   {
     title: "Nexaro Ops",
     text: "Live operations, safety, dispatch and platform intelligence.",
-    image: "/assets/screenshots/ops-console.webp",
+    image: assets.screenshots.ops,
   },
 ];
 
