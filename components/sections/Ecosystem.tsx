@@ -39,14 +39,23 @@ export default function Ecosystem() {
             key={item.title}
             className="overflow-hidden rounded-[2rem] border border-white/10 bg-white/[0.06] transition duration-300 hover:-translate-y-1 hover:bg-white/[0.09]"
           >
-            <div className="relative h-64 bg-[#0b1026]">
-              <Image
-                src={item.image}
-                alt={item.title}
-                fill
-                className="object-cover"
-              />
-            </div>
+            <a
+  href={item.image}
+  target="_blank"
+  rel="noreferrer"
+  className="relative block h-56 bg-[#0b1026]"
+>
+  <Image
+    src={item.image}
+    alt={item.title}
+    fill
+    className="object-cover transition duration-500 hover:scale-105"
+  />
+
+  <span className="absolute right-4 top-4 rounded-full bg-violet-600 px-3 py-2 text-xs font-black text-white">
+    View
+  </span>
+</a>
 
             <div className="p-7">
               <h3 className="text-2xl font-black">{item.title}</h3>
