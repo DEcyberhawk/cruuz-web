@@ -15,7 +15,7 @@ export default function Button({
   className = "",
 }: ButtonProps) {
   let classes =
-    "inline-flex items-center justify-center rounded-2xl px-7 py-4 font-black transition-all duration-300 ";
+    "inline-flex items-center justify-center rounded-2xl px-5 py-3 font-black transition-all duration-300 ";
 
   if (variant === "primary") {
     classes +=

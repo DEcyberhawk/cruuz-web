@@ -34,14 +34,15 @@ export default function Download() {
 
         <div className="relative min-h-[560px]">
           <div className="absolute inset-10 rounded-full bg-violet-400/30 blur-3xl" />
-          <div className="absolute bottom-[-40px] right-4 h-[660px] w-[480px] rotate-[-6deg] md:right-16">
-            <Image
-              src="/assets/phones/cruuz-app-phone-large.webp"
-              alt="CRUUZ app phone"
-              fill
-              className="object-contain drop-shadow-[0_40px_100px_rgba(0,0,0,0.55)]"
-            />
-          </div>
+         <div className="absolute bottom-0 right-8 h-[590px] w-[420px] rotate-[-5deg] lg:right-12">
+  <Image
+    src="/assets/phones/cruuz-app-phone-large.webp"
+    alt="CRUUZ App"
+    fill
+    priority
+    className="object-contain drop-shadow-[0_35px_80px_rgba(0,0,0,0.55)]"
+  />
+</div>
         </div>
       </div>
     </section>
