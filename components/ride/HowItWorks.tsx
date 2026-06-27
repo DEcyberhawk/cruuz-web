@@ -11,7 +11,9 @@ export default function HowItWorks() {
         How it works
       </p>
 
-      <h2 className="mt-3 text-4xl font-black">Simple from start to arrival.</h2>
+      <h2 className="mt-3 text-4xl font-black">
+        Simple from start to arrival.
+      </h2>
 
       <div className="mt-10 grid gap-5 md:grid-cols-3">
         {steps.map(([number, title, text]) => (
