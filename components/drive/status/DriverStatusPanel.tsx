@@ -19,20 +19,31 @@ export default function DriverStatusPanel() {
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
 
-  async function loadStatus() {
-    try {
-      const token = localStorage.getItem("cruuz_web_token");
+async function loadStatus() {
+  try {
+    setLoading(true);
+    setMessage("");
 
-      if (!token) {
-        setMessage("Please apply or verify your phone first.");
-        return;
-      }
+    const token = localStorage.getItem("cruuz_web_token");
 
-      const response = await apiFetch("/drivers/me", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+    if (!token) {
+      setMessage("Please apply or verify your phone first.");
+      return;
+    }
+
+    const response = await apiFetch("/drivers/me", {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    setDriver(response.driver);
+  } catch (error: any) {
+    setMessage(error.message || "Could not load driver status.");
+  } finally {
+    setLoading(false);
+  }
+}
 
       setDriver(response.driver);
     } catch (error: any) {
@@ -43,8 +54,14 @@ export default function DriverStatusPanel() {
   }
 
   useEffect(() => {
+  loadStatus();
+
+  const interval = window.setInterval(() => {
     loadStatus();
-  }, []);
+  }, 15000);
+
+  return () => window.clearInterval(interval);
+}, []);
 
   const activeIndex = useMemo(() => {
     if (!driver) return 0;
@@ -148,14 +165,15 @@ export default function DriverStatusPanel() {
       )}
 
       <div className="mt-8 flex flex-wrap gap-3">
-        <button
-          type="button"
-          onClick={loadStatus}
-          className="rounded-2xl bg-gradient-to-r from-violet-600 to-fuchsia-500 px-5 py-3 text-sm font-black text-white"
-        >
-          Refresh Status
-        </button>
-
+        
+<button
+  type="button"
+  onClick={loadStatus}
+  disabled={loading}
+  className="rounded-2xl bg-gradient-to-r from-violet-600 to-fuchsia-500 px-5 py-3 text-sm font-black text-white disabled:opacity-60"
+>
+  {loading ? "Refreshing..." : "Refresh Status"}
+</button>
         <Link
           href="/drive/apply"
           className="rounded-2xl border border-white/15 bg-white/10 px-5 py-3 text-sm font-black text-white"
