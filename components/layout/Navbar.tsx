@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Logo from "@/components/branding/Logo";
+import { navigation } from "@/lib/navigation";
+
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
 
@@ -25,23 +27,19 @@ export default function Navbar() {
     >
       <div className="mx-auto flex h-24 max-w-7xl items-center justify-between px-6">
         <a
-  href="/"
-  className="flex items-center transition-transform duration-300 hover:scale-105"
-  aria-label="CRUUZ Home"
->
-  <Logo size={50} priority />
-</a>
+          href="/"
+          className="flex items-center transition-transform duration-300 hover:scale-105"
+          aria-label="CRUUZ Home"
+        >
+          <Logo size={58} priority />
+        </a>
 
         <div className="hidden items-center gap-7 text-sm font-semibold text-white/75 md:flex">
-          <a href="#rides" className="transition hover:text-white">
-            Ride
-          </a>
-          <a href="#download" className="transition hover:text-white">
-            Download
-          </a>
-          <a href="mailto:info@cruuz.org" className="transition hover:text-white">
-            Contact
-          </a>
+          {navigation.map((item) => (
+            <a key={item.label} href={item.href} className="transition hover:text-white">
+              {item.label}
+            </a>
+          ))}
         </div>
 
         <a
