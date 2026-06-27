@@ -30,10 +30,10 @@ export default function RideHero() {
             simple booking, flexible payments and live trip tracking.
           </p>
 
-          <div className="mt-8 flex flex-wrap gap-4">
+        <div className="mt-8 flex flex-wrap gap-4">
   <a
     href="#ride-types"
-    className="rounded-2xl bg-white px-6 py-3 font-black text-[#101936]"
+    className="rounded-2xl bg-gradient-to-r from-violet-600 to-fuchsia-500 px-6 py-3 font-black text-white shadow-lg shadow-violet-700/25"
   >
     Explore Ride Types
   </a>

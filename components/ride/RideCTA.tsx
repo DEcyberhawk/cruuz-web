@@ -8,9 +8,9 @@ export default function RideCTA() {
           Join the launch list and be among the first to ride with CRUUZ.
         </p>
 
-       <a
+<a
   href="mailto:info@cruuz.org"
-  className="mt-8 inline-flex rounded-2xl bg-white px-7 py-3 font-black text-[#101936]"
+  className="mt-8 inline-flex rounded-2xl bg-[#101936] px-7 py-3 font-black text-white shadow-lg"
 >
   Join Launch List
 </a>
