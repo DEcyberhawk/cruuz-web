@@ -52,24 +52,25 @@ export default function Navbar() {
               <Link
                 key={item.label}
                 href={item.href}
-                className={`transition ${
-                  active
-                    ? "text-violet-300"
-                    : "hover:text-white"
+                className={`relative transition ${
+                  active ? "text-violet-300" : "hover:text-white"
                 }`}
               >
                 {item.label}
+
+                {active && (
+                  <span className="absolute -bottom-2 left-0 h-0.5 w-full rounded-full bg-violet-400" />
+                )}
               </Link>
             );
           })}
         </div>
 
-       <Link
-  href="/#download"
-  className="rounded-full bg-white px-6 py-3 text-sm font-black text-[#101936] shadow-lg shadow-white/10 transition hover:scale-105"
->
-  Get App
-</Link>
+        <Link
+          href="/#download"
+          className="rounded-full bg-white px-6 py-3 text-sm font-black text-[#101936] shadow-lg shadow-white/10 transition hover:scale-105"
+        >
+          Get App
         </Link>
       </div>
     </nav>
