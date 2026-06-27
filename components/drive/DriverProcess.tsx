@@ -1,7 +1,8 @@
 const steps = [
   ["1", "Apply", "Submit your basic driver and vehicle details."],
   ["2", "Verify", "Complete document, identity and vehicle checks."],
-  ["3", "Go Online", "Start accepting rides once your account is approved."],
+  ["3", "Top up wallet", "Add at least GHS 20 to your driver account before going online."],
+  ["4", "Go Online", "Start accepting rides once your account is approved and funded."],
 ];
 
 export default function DriverProcess() {
@@ -11,7 +12,7 @@ export default function DriverProcess() {
         Onboarding process
       </p>
 
-      <h2 className="mt-3 text-4xl font-black">Start driving in 3 steps.</h2>
+      <h2 className="mt-3 text-4xl font-black">Start driving in 4 steps.</h2>
 
       <div className="mt-10 grid gap-5 md:grid-cols-3">
         {steps.map(([number, title, text]) => (
