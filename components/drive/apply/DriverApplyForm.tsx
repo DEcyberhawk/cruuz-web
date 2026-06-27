@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { apiFetch } from "@/lib/api";
 
@@ -278,9 +279,8 @@ export default function DriverApplyForm() {
           </div>
 
           <div className="rounded-2xl border border-yellow-500/25 bg-yellow-500/10 p-4">
-            <p className="font-black text-yellow-300">
-              Next after submission
-            </p>
+            <p className="font-black text-yellow-300">Next after submission</p>
+
             <p className="mt-2 text-sm leading-6 text-yellow-100/90">
               Your profile will enter Nexaro Ops as PENDING. You will still need
               to complete compliance documents such as Driver License,
@@ -322,6 +322,40 @@ export default function DriverApplyForm() {
               <li>4. You top up at least GHS 20 before going online.</li>
               <li>5. You can then receive ride requests.</li>
             </ul>
+          </div>
+
+          <div className="mt-8 rounded-2xl border border-violet-500/20 bg-violet-500/10 p-5">
+            <p className="text-lg font-black text-violet-300">
+              Continue Your Onboarding
+            </p>
+
+            <p className="mt-2 leading-7 text-white/70">
+              Track your application status or return to the driver page to
+              learn more about the next onboarding steps.
+            </p>
+
+            <div className="mt-6 flex flex-wrap gap-4">
+              <Link
+                href="/drive/status"
+                className="rounded-2xl bg-gradient-to-r from-violet-600 to-fuchsia-500 px-6 py-3 text-sm font-black text-white shadow-lg shadow-violet-700/25 transition duration-300 hover:-translate-y-0.5"
+              >
+                Track My Application →
+              </Link>
+
+              <Link
+                href="/drive"
+                className="rounded-2xl border border-white/15 bg-white/10 px-6 py-3 text-sm font-black text-white transition duration-300 hover:bg-white/15"
+              >
+                Back to Driver Page
+              </Link>
+
+              <Link
+                href="/"
+                className="rounded-2xl border border-white/15 bg-transparent px-6 py-3 text-sm font-black text-white/80 transition duration-300 hover:bg-white/10 hover:text-white"
+              >
+                Return Home
+              </Link>
+            </div>
           </div>
         </div>
       )}
