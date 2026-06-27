@@ -4,7 +4,7 @@ import DriverRequirements from "@/components/drive/DriverRequirements";
 import DriverProcess from "@/components/drive/DriverProcess";
 import DriveCTA from "@/components/drive/DriveCTA";
 import DriverSuccessCenter from "@/components/drive/DriverSuccessCenter";
-import EarningsCalculator from "@/components/drive/EarningsCalculator";
+
 
 
 export default function DrivePage() {
@@ -15,7 +15,7 @@ export default function DrivePage() {
       <DriverRequirements />
       <DriverProcess />
       <DriverSuccessCenter />
-      <EarningsCalculator />
+      
       <DriveCTA />
     </main>
   );
