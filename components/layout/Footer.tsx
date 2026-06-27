@@ -3,26 +3,33 @@ import { company } from "@/lib/company";
 
 export default function Footer() {
   return (
-    <footer className="border-t border-white/10 px-6 py-10">
-      <div className="mx-auto flex max-w-7xl flex-col items-center gap-4 text-center text-white/60">
-        <Logo size={54} />
+    <footer className="border-t border-white/10 px-6 py-6">
+      <div className="mx-auto flex max-w-7xl flex-col gap-5 text-white/60 md:flex-row md:items-center md:justify-between">
+        <div className="flex items-center gap-4">
+          <Logo size={48} />
 
-        <p className="text-lg font-black text-white">{company.slogan}</p>
-
-        <p>🇬🇭 {company.origin}</p>
-
-        <p>{company.vision}</p>
-
-        <div className="flex flex-wrap justify-center gap-4 text-sm text-white/45">
-          <a href={`mailto:${company.email}`}>{company.email}</a>
-          <span>•</span>
-          <a href={`mailto:${company.supportEmail}`}>{company.supportEmail}</a>
+          <div>
+            <p className="font-black text-white">{company.slogan}</p>
+            <p className="mt-1 text-sm">
+              🇬🇭 {company.origin} • {company.vision}
+            </p>
+          </div>
         </div>
 
-        <p className="text-sm text-white/40">
-          © {new Date().getFullYear()} {company.name} • Powered by{" "}
-          {company.poweredBy}
-        </p>
+        <div className="flex flex-col gap-2 text-sm md:items-end">
+          <div className="flex flex-wrap gap-3 text-white/50">
+            <a href={`mailto:${company.email}`}>{company.email}</a>
+            <span>•</span>
+            <a href={`mailto:${company.supportEmail}`}>
+              {company.supportEmail}
+            </a>
+          </div>
+
+          <p className="text-white/35">
+            © {new Date().getFullYear()} {company.name} • Powered by{" "}
+            {company.poweredBy}
+          </p>
+        </div>
       </div>
     </footer>
   );
