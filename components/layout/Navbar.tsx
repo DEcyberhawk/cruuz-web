@@ -64,11 +64,12 @@ export default function Navbar() {
           })}
         </div>
 
-        <Link
-          href="/#download"
-          className="rounded-full bg-white px-5 py-2.5 text-sm font-black text-[#101936] transition hover:scale-105"
-        >
-          Get App
+       <Link
+  href="/#download"
+  className="rounded-full bg-white px-6 py-3 text-sm font-black text-[#101936] shadow-lg shadow-white/10 transition hover:scale-105"
+>
+  Get App
+</Link>
         </Link>
       </div>
     </nav>

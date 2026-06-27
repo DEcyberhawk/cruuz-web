@@ -31,20 +31,20 @@ export default function RideHero() {
           </p>
 
           <div className="mt-8 flex flex-wrap gap-4">
-            <a
-              href="#ride-types"
-              className="rounded-2xl bg-white px-6 py-3 font-black text-[#101936]"
-            >
-              Explore Ride Types
-            </a>
+  <a
+    href="#ride-types"
+    className="rounded-2xl bg-white px-6 py-3 font-black text-[#101936]"
+  >
+    Explore Ride Types
+  </a>
 
-            <a
-              href="mailto:info@cruuz.org"
-              className="rounded-2xl border border-white/20 bg-white/10 px-6 py-3 font-black"
-            >
-              Join Launch List
-            </a>
-          </div>
+  <a
+    href="mailto:info@cruuz.org"
+    className="rounded-2xl border border-white/20 bg-white/10 px-6 py-3 font-black text-white"
+  >
+    Join Launch List
+  </a>
+</div>
         </div>
 
         <div className="relative hidden h-[420px] lg:block">
