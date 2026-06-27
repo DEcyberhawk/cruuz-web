@@ -42,7 +42,7 @@ export default function DriveHero() {
 
           <div className="mt-8 flex flex-wrap gap-4">
             <a
-              href="mailto:info@cruuz.org"
+              href="/drive/apply"
               className="rounded-2xl bg-gradient-to-r from-violet-600 to-fuchsia-500 px-6 py-3 font-black text-white shadow-lg shadow-violet-700/25"
             >
               Apply to Drive

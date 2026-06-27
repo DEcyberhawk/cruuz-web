@@ -10,7 +10,7 @@ export default function DriveCTA() {
         </p>
 
         <a
-          href="mailto:info@cruuz.org"
+          href="/drive/apply"
           className="mt-8 inline-flex rounded-2xl bg-[#101936] px-7 py-3 font-black text-white shadow-lg"
         >
           Apply to Drive
