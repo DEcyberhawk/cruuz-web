@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { apiFetch } from "@/lib/api";
+import { joinDriverRoom } from "@/lib/socket";
 
 const timeline = [
   "Phone Verified",
@@ -16,36 +17,36 @@ const timeline = [
 
 export default function DriverStatusPanel() {
   const [driver, setDriver] = useState<any>(null);
+  const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
+  const [lastUpdatedAt, setLastUpdatedAt] = useState("");
 
-async function loadStatus() {
-  try {
-    setLoading(true);
-    setMessage("");
+  async function loadStatus() {
+    try {
+      setLoading(true);
+      setMessage("");
 
-    const token = localStorage.getItem("cruuz_web_token");
+      const token = localStorage.getItem("cruuz_web_token");
+      const rawUser = localStorage.getItem("cruuz_web_user");
 
-    if (!token) {
-      setMessage("Please apply or verify your phone first.");
-      return;
-    }
+      if (rawUser) {
+        setUser(JSON.parse(rawUser));
+      }
 
-    const response = await apiFetch("/drivers/me", {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
+      if (!token) {
+        setMessage("Please apply or verify your phone first.");
+        return;
+      }
 
-    setDriver(response.driver);
-  } catch (error: any) {
-    setMessage(error.message || "Could not load driver status.");
-  } finally {
-    setLoading(false);
-  }
-}
+      const response = await apiFetch("/drivers/me", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
       setDriver(response.driver);
+      setLastUpdatedAt(new Date().toLocaleTimeString());
     } catch (error: any) {
       setMessage(error.message || "Could not load driver status.");
     } finally {
@@ -54,14 +55,56 @@ async function loadStatus() {
   }
 
   useEffect(() => {
-  loadStatus();
-
-  const interval = window.setInterval(() => {
     loadStatus();
-  }, 15000);
 
-  return () => window.clearInterval(interval);
-}, []);
+    const interval = window.setInterval(() => {
+      loadStatus();
+    }, 15000);
+
+    return () => window.clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const socket = joinDriverRoom(user.id);
+
+    function handleStatusUpdate(payload: any) {
+      if (payload?.driver) {
+        setDriver(payload.driver);
+      }
+
+      if (payload?.status) {
+        setDriver((prev: any) =>
+          prev
+            ? {
+                ...prev,
+                status: payload.status,
+              }
+            : prev
+        );
+      }
+
+      setLastUpdatedAt(new Date().toLocaleTimeString());
+    }
+
+    socket.off("driver:status:update", handleStatusUpdate);
+    socket.off("driver:approved", handleStatusUpdate);
+    socket.off("driver:rejected", handleStatusUpdate);
+    socket.off("driver:suspended", handleStatusUpdate);
+
+    socket.on("driver:status:update", handleStatusUpdate);
+    socket.on("driver:approved", handleStatusUpdate);
+    socket.on("driver:rejected", handleStatusUpdate);
+    socket.on("driver:suspended", handleStatusUpdate);
+
+    return () => {
+      socket.off("driver:status:update", handleStatusUpdate);
+      socket.off("driver:approved", handleStatusUpdate);
+      socket.off("driver:rejected", handleStatusUpdate);
+      socket.off("driver:suspended", handleStatusUpdate);
+    };
+  }, [user?.id]);
 
   const activeIndex = useMemo(() => {
     if (!driver) return 0;
@@ -74,7 +117,7 @@ async function loadStatus() {
     return 1;
   }, [driver]);
 
-  if (loading) {
+  if (loading && !driver) {
     return (
       <section className="mx-auto max-w-3xl rounded-[2rem] border border-white/10 bg-white/[0.06] p-8">
         <p className="text-white/60">Loading application status...</p>
@@ -91,6 +134,12 @@ async function loadStatus() {
       <h1 className="mt-3 text-4xl font-black">
         Track your CRUUZ application
       </h1>
+
+      {lastUpdatedAt && (
+        <p className="mt-3 text-sm text-white/45">
+          Last updated: {lastUpdatedAt}
+        </p>
+      )}
 
       {message && (
         <div className="mt-6 rounded-2xl border border-yellow-500/25 bg-yellow-500/10 p-4 text-yellow-200">
@@ -165,15 +214,15 @@ async function loadStatus() {
       )}
 
       <div className="mt-8 flex flex-wrap gap-3">
-        
-<button
-  type="button"
-  onClick={loadStatus}
-  disabled={loading}
-  className="rounded-2xl bg-gradient-to-r from-violet-600 to-fuchsia-500 px-5 py-3 text-sm font-black text-white disabled:opacity-60"
->
-  {loading ? "Refreshing..." : "Refresh Status"}
-</button>
+        <button
+          type="button"
+          onClick={loadStatus}
+          disabled={loading}
+          className="rounded-2xl bg-gradient-to-r from-violet-600 to-fuchsia-500 px-5 py-3 text-sm font-black text-white disabled:opacity-60"
+        >
+          {loading ? "Refreshing..." : "Refresh Status"}
+        </button>
+
         <Link
           href="/drive/apply"
           className="rounded-2xl border border-white/15 bg-white/10 px-5 py-3 text-sm font-black text-white"
@@ -198,6 +247,7 @@ function StatusCard({ label, value }: { label: string; value: string }) {
       <p className="text-xs font-black uppercase tracking-[0.2em] text-white/35">
         {label}
       </p>
+
       <p className="mt-2 font-black text-white">{value || "—"}</p>
     </div>
   );
