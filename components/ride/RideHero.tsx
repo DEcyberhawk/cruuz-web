@@ -20,6 +20,16 @@ export default function RideHero() {
           <p className="text-sm font-black uppercase tracking-[0.35em] text-violet-200">
             Ride with CRUUZ
           </p>
+           <div className="relative mt-5 h-[72px] w-[320px]">
+  <Image
+    src={assets.badges.ghana}
+    alt="Proudly Ghanaian"
+    fill
+    priority
+    className="object-contain object-left"
+  />
+</div>
+
 
           <h1 className="mt-4 text-5xl font-black leading-tight md:text-7xl">
             Book safer, smarter rides.
