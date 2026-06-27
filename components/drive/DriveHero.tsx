@@ -1,0 +1,71 @@
+import Image from "next/image";
+import { assets } from "@/lib/assets";
+
+export default function DriveHero() {
+  return (
+    <section className="relative min-h-[82vh] overflow-hidden px-6 pt-32">
+      <Image
+        src={assets.hero.background}
+        alt="Drive with CRUUZ"
+        fill
+        priority
+        className="object-cover"
+      />
+
+      <div className="absolute inset-0 bg-gradient-to-r from-[#101936]/95 via-[#101936]/70 to-[#101936]/20" />
+      <div className="absolute inset-0 bg-gradient-to-t from-[#101936] via-transparent to-[#101936]/30" />
+
+      <div className="relative mx-auto grid min-h-[70vh] max-w-7xl items-center gap-10 lg:grid-cols-2">
+        <div>
+          <p className="text-sm font-black uppercase tracking-[0.35em] text-violet-200">
+            Drive with CRUUZ
+          </p>
+
+          <div className="relative mt-6 h-[95px] w-[420px] max-w-full">
+            <Image
+              src={assets.badges.ghana}
+              alt="Proudly Ghanaian"
+              fill
+              priority
+              className="object-contain object-left"
+            />
+          </div>
+
+          <h1 className="mt-6 text-5xl font-black leading-tight md:text-7xl">
+            Earn more. Drive smarter.
+          </h1>
+
+          <p className="mt-6 max-w-xl text-lg leading-8 text-white/75">
+            Join CRUUZ as a driver and access smart ride requests, secure
+            payments, fair opportunities and tools designed to help you grow.
+          </p>
+
+          <div className="mt-8 flex flex-wrap gap-4">
+            <a
+              href="mailto:info@cruuz.org"
+              className="rounded-2xl bg-gradient-to-r from-violet-600 to-fuchsia-500 px-6 py-3 font-black text-white shadow-lg shadow-violet-700/25"
+            >
+              Apply to Drive
+            </a>
+
+            <a
+              href="#requirements"
+              className="rounded-2xl border border-white/20 bg-white/10 px-6 py-3 font-black text-white"
+            >
+              See Requirements
+            </a>
+          </div>
+        </div>
+
+        <div className="relative hidden h-[440px] lg:block">
+          <Image
+            src={assets.screenshots.driver}
+            alt="CRUUZ driver dashboard"
+            fill
+            className="object-contain drop-shadow-[0_45px_100px_rgba(0,0,0,0.8)]"
+          />
+        </div>
+      </div>
+    </section>
+  );
+}
