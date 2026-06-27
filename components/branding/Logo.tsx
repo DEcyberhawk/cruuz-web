@@ -5,15 +5,22 @@ type LogoProps = {
   priority?: boolean;
 };
 
-export default function Logo({ size = 70, priority = false }: LogoProps) {
+export default function Logo({
+  size = 70,
+  priority = false,
+}: LogoProps) {
   return (
     <Image
       src="/assets/logos/CRUUZ_logo.png"
-      alt="CRUUZ"
+      alt="CRUUZ Logo"
       width={size}
       height={size}
       priority={priority}
-      className="h-auto w-auto object-contain"
+      style={{
+        width: "auto",
+        height: "auto",
+      }}
+      className="object-contain select-none"
     />
   );
 }
