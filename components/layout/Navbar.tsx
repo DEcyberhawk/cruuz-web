@@ -66,12 +66,12 @@ export default function Navbar() {
           })}
         </div>
 
-        <Link
-          href="/#download"
-          className="rounded-full bg-white px-6 py-3 text-sm font-black text-[#101936] shadow-lg shadow-white/10 transition hover:scale-105"
-        >
-          Get App
-        </Link>
+      <Link
+  href="/#download"
+  className="rounded-full bg-gradient-to-r from-violet-600 to-fuchsia-500 px-6 py-3 text-sm font-black text-white shadow-lg shadow-violet-700/25 transition hover:scale-105"
+>
+  Get App
+</Link>
       </div>
     </nav>
   );
