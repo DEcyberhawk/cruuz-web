@@ -71,12 +71,17 @@ export default function DriverApplyForm() {
       setStep("otp");
       setMessage("OTP sent. Use 1234 for development.");
   } catch (error: any) {
-  const errorMessage = error.message || "Application submission failed.";
+  const errorMessage =
+    error?.message ||
+    error?.response?.data?.message ||
+    "Application submission failed.";
 
-  if (errorMessage.includes("already has a driver profile")) {
+  if (
+    errorMessage.toLowerCase().includes("already has a driver profile")
+  ) {
     setStep("done");
     setMessage(
-      "You already have a driver profile. Use Track My Application to continue your onboarding."
+      "This phone number already has a CRUUZ driver profile. Track your application to continue onboarding."
     );
     return;
   }
