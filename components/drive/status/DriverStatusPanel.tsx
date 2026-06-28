@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { apiFetch } from "@/lib/api";
 import { joinDriverRoom } from "@/lib/socket";
-
+import DriverDocumentUpload from "./DriverDocumentUpload";
 type DriverDocument = {
   id?: string;
   documentType: string;
@@ -307,12 +307,26 @@ export default function DriverStatusPanel() {
                 const status = document?.status || "MISSING";
 
                 return (
-                  <DocumentCard
-                    key={item.type}
-                    label={item.label}
-                    status={status}
-                    expiresAt={document?.expiresAt}
-                  />
+                 <div key={item.type}>
+  <DocumentCard
+    label={item.label}
+    status={status}
+    expiresAt={document?.expiresAt}
+  />
+
+  {(status === "MISSING" ||
+    status === "REJECTED" ||
+    status === "EXPIRED" ||
+    status === "FLAGGED") &&
+    driver?.id && (
+      <DriverDocumentUpload
+        driverId={driver.id}
+        documentType={item.type}
+        label={item.label}
+        onUploaded={loadStatus}
+      />
+    )}
+</div>
                 );
               })}
             </div>
