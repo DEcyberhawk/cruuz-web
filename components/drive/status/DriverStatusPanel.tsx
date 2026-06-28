@@ -5,6 +5,13 @@ import { useEffect, useMemo, useState } from "react";
 import { apiFetch } from "@/lib/api";
 import { joinDriverRoom } from "@/lib/socket";
 
+type DriverDocument = {
+  id?: string;
+  documentType: string;
+  status: string;
+  expiresAt?: string;
+};
+
 const timeline = [
   "Phone Verified",
   "Application Submitted",
@@ -27,7 +34,7 @@ const requiredDocuments = [
 
 export default function DriverStatusPanel() {
   const [driver, setDriver] = useState<any>(null);
-  const [documents, setDocuments] = useState<any[]>([]);
+  const [documents, setDocuments] = useState<DriverDocument[]>([]);
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
@@ -42,10 +49,16 @@ export default function DriverStatusPanel() {
       const rawUser = localStorage.getItem("cruuz_web_user");
 
       if (rawUser) {
-        setUser(JSON.parse(rawUser));
+        try {
+          setUser(JSON.parse(rawUser));
+        } catch {
+          setUser(null);
+        }
       }
 
       if (!token) {
+        setDriver(null);
+        setDocuments([]);
         setMessage("Please apply or verify your phone first.");
         return;
       }
@@ -56,11 +69,12 @@ export default function DriverStatusPanel() {
         },
       });
 
-      setDriver(response.driver);
+      const currentDriver = response?.driver || null;
+      setDriver(currentDriver);
 
-      if (response.driver?.id) {
+      if (currentDriver?.id) {
         const docsResponse = await apiFetch(
-          `/driver-documents/driver/${response.driver.id}`,
+          `/driver-documents/driver/${currentDriver.id}`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -68,12 +82,18 @@ export default function DriverStatusPanel() {
           }
         );
 
-        setDocuments(docsResponse.documents || []);
+        const docs = Array.isArray(docsResponse)
+          ? docsResponse
+          : docsResponse?.documents || [];
+
+        setDocuments(docs);
+      } else {
+        setDocuments([]);
       }
 
       setLastUpdatedAt(new Date().toLocaleTimeString());
     } catch (error: any) {
-      setMessage(error.message || "Could not load driver status.");
+      setMessage(error?.message || "Could not load driver status.");
     } finally {
       setLoading(false);
     }
@@ -111,6 +131,7 @@ export default function DriverStatusPanel() {
       }
 
       setLastUpdatedAt(new Date().toLocaleTimeString());
+      loadStatus();
     }
 
     socket.off("driver:status:update", handleStatusUpdate);
@@ -143,10 +164,10 @@ export default function DriverStatusPanel() {
   }, [driver]);
 
   const documentMap = useMemo(() => {
-    const map = new Map<string, any>();
+    const map = new Map<string, DriverDocument>();
 
     for (const document of documents) {
-      if (!map.has(document.documentType)) {
+      if (document?.documentType && !map.has(document.documentType)) {
         map.set(document.documentType, document);
       }
     }
@@ -159,16 +180,11 @@ export default function DriverStatusPanel() {
       (item) => documentMap.get(item.type)?.status === "APPROVED"
     ).length;
 
-    const submitted = requiredDocuments.filter((item) =>
-      documentMap.has(item.type)
-    ).length;
-
     const total = requiredDocuments.length;
     const percent = Math.round((approved / total) * 100);
 
     return {
       approved,
-      submitted,
       total,
       percent,
     };
@@ -215,12 +231,8 @@ export default function DriverStatusPanel() {
             <StatusCard label="Availability" value={driver.availability} />
           </div>
 
-          <div className="mt-8 rounded-3xl border border-white/10 bg-black/20 p-5">
-            <p className="text-xl font-black text-white">
-              Application Progress
-            </p>
-
-            <div className="mt-6 space-y-4">
+          <Panel title="Application Progress">
+            <div className="space-y-4">
               {timeline.map((item, index) => {
                 const completed = index <= activeIndex;
 
@@ -256,7 +268,7 @@ export default function DriverStatusPanel() {
                 );
               })}
             </div>
-          </div>
+          </Panel>
 
           <div className="mt-8 rounded-3xl border border-white/10 bg-black/20 p-5">
             <div className="flex flex-wrap items-start justify-between gap-4">
@@ -275,6 +287,7 @@ export default function DriverStatusPanel() {
                 <p className="text-2xl font-black text-violet-300">
                   {complianceStats.percent}%
                 </p>
+
                 <p className="text-xs font-bold text-white/50">
                   {complianceStats.approved}/{complianceStats.total} approved
                 </p>
@@ -342,6 +355,21 @@ export default function DriverStatusPanel() {
         </Link>
       </div>
     </section>
+  );
+}
+
+function Panel({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="mt-8 rounded-3xl border border-white/10 bg-black/20 p-5">
+      <p className="mb-6 text-xl font-black text-white">{title}</p>
+      {children}
+    </div>
   );
 }
 
