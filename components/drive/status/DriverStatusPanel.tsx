@@ -224,11 +224,11 @@ export default function DriverStatusPanel() {
         </button>
 
         <Link
-          href="/drive/apply"
-          className="rounded-2xl border border-white/15 bg-white/10 px-5 py-3 text-sm font-black text-white"
-        >
-          Apply Again
-        </Link>
+  href="/drive/apply"
+  className="rounded-2xl border border-white/15 bg-white/10 px-5 py-3 text-sm font-black text-white"
+>
+  Back to Application
+</Link>
 
         <Link
           href="/drive"
