@@ -117,12 +117,10 @@ export default function DriverDocumentUpload({
         />
 
         {requiresExpiry && (
-          <input
-            type="date"
-            value={expiresAt}
-            onChange={(event) => setExpiresAt(event.target.value)}
-            className="w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none"
-          />
+         import DatePicker from "react-datepicker";
+        import "react-datepicker/dist/react-datepicker.css";
+
+       const [expiryDate, setExpiryDate] = useState<Date | null>(null);
         )}
 
         {documentType === "GHANA_CARD" && (
