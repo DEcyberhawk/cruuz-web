@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { apiFetch } from "@/lib/api";
+import { useMemo, useState } from "react";
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
 
 type Props = {
   driverId: string;
@@ -17,7 +18,7 @@ export default function DriverDocumentUpload({
   onUploaded,
 }: Props) {
   const [file, setFile] = useState<File | null>(null);
-  const [expiresAt, setExpiresAt] = useState("");
+  const [expiryDate, setExpiryDate] = useState<Date | null>(null);
   const [ghanaCardNumber, setGhanaCardNumber] = useState("");
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState("");
@@ -28,6 +29,16 @@ export default function DriverDocumentUpload({
     "ROADWORTHY",
     "GHANA_CARD",
   ].includes(documentType);
+
+  const filePreview = useMemo(() => {
+    if (!file) return null;
+
+    return {
+      name: file.name,
+      size: `${(file.size / 1024 / 1024).toFixed(2)} MB`,
+      type: file.type || "Unknown file type",
+    };
+  }, [file]);
 
   async function uploadDocument() {
     setMessage("");
@@ -44,7 +55,7 @@ export default function DriverDocumentUpload({
       return;
     }
 
-    if (requiresExpiry && !expiresAt) {
+    if (requiresExpiry && !expiryDate) {
       setMessage("Expiry date is required.");
       return;
     }
@@ -64,8 +75,8 @@ export default function DriverDocumentUpload({
       formData.append("document", file);
       formData.append("documentType", documentType);
 
-      if (expiresAt) {
-        formData.append("expiresAt", expiresAt);
+      if (expiryDate) {
+        formData.append("expiresAt", expiryDate.toISOString());
       }
 
       if (documentType === "GHANA_CARD") {
@@ -92,7 +103,7 @@ export default function DriverDocumentUpload({
       }
 
       setFile(null);
-      setExpiresAt("");
+      setExpiryDate(null);
       setGhanaCardNumber("");
       setMessage("Uploaded successfully. Waiting for Ops review.");
 
@@ -106,21 +117,72 @@ export default function DriverDocumentUpload({
 
   return (
     <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-4">
-      <p className="text-sm font-black text-white">Upload {label}</p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-sm font-black text-white">Upload {label}</p>
+          <p className="mt-1 text-xs text-white/45">
+            JPG, PNG or PDF accepted.
+          </p>
+        </div>
 
-      <div className="mt-3 grid gap-3">
+        {requiresExpiry && (
+          <span className="rounded-full bg-yellow-500/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.15em] text-yellow-300">
+            Expiry required
+          </span>
+        )}
+      </div>
+
+      <label className="mt-4 block cursor-pointer rounded-2xl border border-dashed border-violet-400/30 bg-violet-500/5 p-5 transition hover:bg-violet-500/10">
         <input
           type="file"
           accept="image/*,.pdf"
           onChange={(event) => setFile(event.target.files?.[0] || null)}
-          className="block w-full text-sm text-white/70 file:mr-4 file:rounded-xl file:border-0 file:bg-violet-600 file:px-4 file:py-2 file:text-sm file:font-black file:text-white"
+          className="hidden"
         />
 
-        {requiresExpiry && (
-         import DatePicker from "react-datepicker";
-        import "react-datepicker/dist/react-datepicker.css";
+        <div className="flex items-center gap-4">
+          <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-violet-500/15 text-2xl">
+            📄
+          </div>
 
-       const [expiryDate, setExpiryDate] = useState<Date | null>(null);
+          <div>
+            <p className="text-sm font-black text-white">
+              {file ? "File selected" : "Choose document file"}
+            </p>
+            <p className="mt-1 text-xs leading-5 text-white/50">
+              Click here to browse and select your document.
+            </p>
+          </div>
+        </div>
+      </label>
+
+      {filePreview && (
+        <div className="mt-3 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-4">
+          <p className="text-sm font-black text-emerald-300">
+            Ready to upload
+          </p>
+
+          <div className="mt-2 space-y-1 text-xs text-white/70">
+            <p>Name: {filePreview.name}</p>
+            <p>Size: {filePreview.size}</p>
+            <p>Type: {filePreview.type}</p>
+          </div>
+        </div>
+      )}
+
+      <div className="mt-4 grid gap-3">
+        {requiresExpiry && (
+          <DatePicker
+            selected={expiryDate}
+            onChange={(date) => setExpiryDate(date)}
+            dateFormat="dd/MM/yyyy"
+            minDate={new Date()}
+            placeholderText="Select expiry date"
+            showMonthDropdown
+            showYearDropdown
+            dropdownMode="select"
+            className="w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none placeholder:text-white/30"
+          />
         )}
 
         {documentType === "GHANA_CARD" && (
@@ -132,14 +194,27 @@ export default function DriverDocumentUpload({
           />
         )}
 
-        <button
-          type="button"
-          onClick={uploadDocument}
-          disabled={uploading}
-          className="w-fit rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-500 px-4 py-2 text-xs font-black text-white disabled:opacity-60"
-        >
-          {uploading ? "Uploading..." : "Upload Document"}
-        </button>
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={uploadDocument}
+            disabled={uploading}
+            className="rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-500 px-4 py-2 text-xs font-black text-white disabled:opacity-60"
+          >
+            {uploading ? "Uploading..." : "Upload Document"}
+          </button>
+
+          {file && (
+            <button
+              type="button"
+              onClick={() => setFile(null)}
+              disabled={uploading}
+              className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-xs font-black text-white/70 hover:bg-white/10"
+            >
+              Remove File
+            </button>
+          )}
+        </div>
 
         {message && <p className="text-xs text-yellow-300">{message}</p>}
       </div>
