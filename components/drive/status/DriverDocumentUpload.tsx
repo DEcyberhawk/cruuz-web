@@ -11,6 +11,38 @@ type Props = {
   onUploaded: () => Promise<void> | void;
 };
 
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3002";
+
+const MAX_FILE_SIZE_MB = 10;
+
+const EXPIRY_REQUIRED_DOCUMENTS = [
+  "DRIVER_LICENSE",
+  "INSURANCE",
+  "ROADWORTHY",
+  "GHANA_CARD",
+];
+
+function formatGhanaCardNumber(value: string) {
+  const cleaned = value
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "")
+    .replace(/^GHA/, "");
+
+  const digits = cleaned.replace(/\D/g, "").slice(0, 10);
+
+  if (!digits) return "GHA-";
+
+  const main = digits.slice(0, 9);
+  const check = digits.slice(9, 10);
+
+  return `GHA-${main}${check ? `-${check}` : ""}`;
+}
+
+function isValidGhanaCardNumber(value: string) {
+  return /^GHA-\d{9}-\d$/.test(value.trim());
+}
+
 export default function DriverDocumentUpload({
   driverId,
   documentType,
@@ -22,23 +54,69 @@ export default function DriverDocumentUpload({
   const [ghanaCardNumber, setGhanaCardNumber] = useState("");
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState("");
+  const [messageTone, setMessageTone] = useState<"success" | "warning" | "error">(
+    "warning"
+  );
 
-  const requiresExpiry = [
-    "DRIVER_LICENSE",
-    "INSURANCE",
-    "ROADWORTHY",
-    "GHANA_CARD",
-  ].includes(documentType);
+  const requiresExpiry = EXPIRY_REQUIRED_DOCUMENTS.includes(documentType);
 
   const filePreview = useMemo(() => {
     if (!file) return null;
 
     return {
       name: file.name,
+      sizeMb: file.size / 1024 / 1024,
       size: `${(file.size / 1024 / 1024).toFixed(2)} MB`,
       type: file.type || "Unknown file type",
     };
   }, [file]);
+
+  function showMessage(
+    text: string,
+    tone: "success" | "warning" | "error" = "warning"
+  ) {
+    setMessage(text);
+    setMessageTone(tone);
+  }
+
+  function handleFileSelect(selectedFile?: File) {
+    setMessage("");
+
+    if (!selectedFile) {
+      setFile(null);
+      return;
+    }
+
+    const allowedMimeTypes = [
+      "image/jpeg",
+      "image/png",
+      "image/jpg",
+      "application/pdf",
+    ];
+
+    const isAccepted =
+      allowedMimeTypes.includes(selectedFile.type) ||
+      selectedFile.name.toLowerCase().endsWith(".pdf");
+
+    if (!isAccepted) {
+      setFile(null);
+      showMessage("Only JPG, PNG or PDF files are accepted.", "error");
+      return;
+    }
+
+    const fileSizeMb = selectedFile.size / 1024 / 1024;
+
+    if (fileSizeMb > MAX_FILE_SIZE_MB) {
+      setFile(null);
+      showMessage(
+        `File is too large. Maximum allowed size is ${MAX_FILE_SIZE_MB} MB.`,
+        "error"
+      );
+      return;
+    }
+
+    setFile(selectedFile);
+  }
 
   async function uploadDocument() {
     setMessage("");
@@ -46,25 +124,30 @@ export default function DriverDocumentUpload({
     const token = localStorage.getItem("cruuz_web_token");
 
     if (!token) {
-      setMessage("Please verify your phone again.");
+      showMessage("Please verify your phone again before uploading.", "error");
+      return;
+    }
+
+    if (!driverId) {
+      showMessage("Driver profile was not found. Please refresh the page.", "error");
       return;
     }
 
     if (!file) {
-      setMessage("Please choose a file first.");
+      showMessage("Please choose a document file first.", "warning");
       return;
     }
 
     if (requiresExpiry && !expiryDate) {
-      setMessage("Expiry date is required.");
+      showMessage(`${label} requires an expiry date.`, "warning");
       return;
     }
 
     if (
       documentType === "GHANA_CARD" &&
-      !/^GHA-\d{9}-\d$/.test(ghanaCardNumber.trim())
+      !isValidGhanaCardNumber(ghanaCardNumber)
     ) {
-      setMessage("Use Ghana Card format: GHA-000000000-0");
+      showMessage("Use Ghana Card format: GHA-000000000-0", "warning");
       return;
     }
 
@@ -84,9 +167,7 @@ export default function DriverDocumentUpload({
       }
 
       const response = await fetch(
-        `${
-          process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3002"
-        }/driver-documents/driver/${driverId}/upload`,
+        `${API_BASE_URL}/driver-documents/driver/${driverId}/upload`,
         {
           method: "POST",
           headers: {
@@ -105,23 +186,34 @@ export default function DriverDocumentUpload({
       setFile(null);
       setExpiryDate(null);
       setGhanaCardNumber("");
-      setMessage("Uploaded successfully. Waiting for Ops review.");
+
+      showMessage(
+        `${label} uploaded successfully. Waiting for Nexaro Ops review.`,
+        "success"
+      );
 
       await onUploaded();
     } catch (error: any) {
-      setMessage(error.message || "Upload failed.");
+      showMessage(error?.message || "Upload failed.", "error");
     } finally {
       setUploading(false);
     }
   }
+
+  const messageClass =
+    messageTone === "success"
+      ? "text-emerald-300"
+      : messageTone === "error"
+      ? "text-red-300"
+      : "text-yellow-300";
 
   return (
     <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-sm font-black text-white">Upload {label}</p>
-          <p className="mt-1 text-xs text-white/45">
-            JPG, PNG or PDF accepted.
+          <p className="mt-1 text-xs leading-5 text-white/45">
+            JPG, PNG or PDF accepted. Maximum file size: {MAX_FILE_SIZE_MB} MB.
           </p>
         </div>
 
@@ -135,9 +227,10 @@ export default function DriverDocumentUpload({
       <label className="mt-4 block cursor-pointer rounded-2xl border border-dashed border-violet-400/30 bg-violet-500/5 p-5 transition hover:bg-violet-500/10">
         <input
           type="file"
-          accept="image/*,.pdf"
-          onChange={(event) => setFile(event.target.files?.[0] || null)}
+          accept="image/jpeg,image/png,.pdf"
+          onChange={(event) => handleFileSelect(event.target.files?.[0])}
           className="hidden"
+          disabled={uploading}
         />
 
         <div className="flex items-center gap-4">
@@ -181,16 +274,20 @@ export default function DriverDocumentUpload({
             showMonthDropdown
             showYearDropdown
             dropdownMode="select"
-            className="w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none placeholder:text-white/30"
+            disabled={uploading}
+            className="w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none placeholder:text-white/30 disabled:opacity-60"
           />
         )}
 
         {documentType === "GHANA_CARD" && (
           <input
             value={ghanaCardNumber}
-            onChange={(event) => setGhanaCardNumber(event.target.value)}
+            onChange={(event) =>
+              setGhanaCardNumber(formatGhanaCardNumber(event.target.value))
+            }
             placeholder="GHA-000000000-0"
-            className="w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none placeholder:text-white/30"
+            disabled={uploading}
+            className="w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none placeholder:text-white/30 disabled:opacity-60"
           />
         )}
 
@@ -199,7 +296,7 @@ export default function DriverDocumentUpload({
             type="button"
             onClick={uploadDocument}
             disabled={uploading}
-            className="rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-500 px-4 py-2 text-xs font-black text-white disabled:opacity-60"
+            className="rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-500 px-4 py-2 text-xs font-black text-white disabled:cursor-not-allowed disabled:opacity-60"
           >
             {uploading ? "Uploading..." : "Upload Document"}
           </button>
@@ -209,14 +306,14 @@ export default function DriverDocumentUpload({
               type="button"
               onClick={() => setFile(null)}
               disabled={uploading}
-              className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-xs font-black text-white/70 hover:bg-white/10"
+              className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-xs font-black text-white/70 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
             >
               Remove File
             </button>
           )}
         </div>
 
-        {message && <p className="text-xs text-yellow-300">{message}</p>}
+        {message && <p className={`text-xs font-bold ${messageClass}`}>{message}</p>}
       </div>
     </div>
   );
