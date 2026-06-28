@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { apiFetch } from "@/lib/api";
 import { joinDriverRoom } from "@/lib/socket";
 import DriverDocumentUpload from "./DriverDocumentUpload";
+
 type DriverDocument = {
   id?: string;
   documentType: string;
@@ -35,6 +36,7 @@ const requiredDocuments = [
 export default function DriverStatusPanel() {
   const [driver, setDriver] = useState<any>(null);
   const [documents, setDocuments] = useState<DriverDocument[]>([]);
+  const [wallet, setWallet] = useState<any>(null);
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
@@ -59,6 +61,7 @@ export default function DriverStatusPanel() {
       if (!token) {
         setDriver(null);
         setDocuments([]);
+        setWallet(null);
         setMessage("Please apply or verify your phone first.");
         return;
       }
@@ -89,6 +92,18 @@ export default function DriverStatusPanel() {
         setDocuments(docs);
       } else {
         setDocuments([]);
+      }
+
+      try {
+        const walletResponse = await apiFetch("/earnings/me", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        setWallet(walletResponse?.summary || null);
+      } catch {
+        setWallet(null);
       }
 
       setLastUpdatedAt(new Date().toLocaleTimeString());
@@ -189,6 +204,9 @@ export default function DriverStatusPanel() {
       percent,
     };
   }, [documentMap]);
+
+  const walletBalance = Number(wallet?.walletBalance || 0);
+  const walletReady = walletBalance >= 20;
 
   if (loading && !driver) {
     return (
@@ -307,28 +325,74 @@ export default function DriverStatusPanel() {
                 const status = document?.status || "MISSING";
 
                 return (
-                 <div key={item.type}>
-  <DocumentCard
-    label={item.label}
-    status={status}
-    expiresAt={document?.expiresAt}
-  />
+                  <div key={item.type}>
+                    <DocumentCard
+                      label={item.label}
+                      status={status}
+                      expiresAt={document?.expiresAt}
+                    />
 
-  {(status === "MISSING" ||
-    status === "REJECTED" ||
-    status === "EXPIRED" ||
-    status === "FLAGGED") &&
-    driver?.id && (
-      <DriverDocumentUpload
-        driverId={driver.id}
-        documentType={item.type}
-        label={item.label}
-        onUploaded={loadStatus}
-      />
-    )}
-</div>
+                    {(status === "MISSING" ||
+                      status === "REJECTED" ||
+                      status === "EXPIRED" ||
+                      status === "FLAGGED") &&
+                      driver?.id && (
+                        <DriverDocumentUpload
+                          driverId={driver.id}
+                          documentType={item.type}
+                          label={item.label}
+                          onUploaded={loadStatus}
+                        />
+                      )}
+                  </div>
                 );
               })}
+            </div>
+          </div>
+
+          <div className="mt-8 rounded-3xl border border-white/10 bg-black/20 p-5">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <p className="text-xl font-black text-white">
+                  Driver Wallet Center
+                </p>
+
+                <p className="mt-2 text-sm leading-6 text-white/60">
+                  Drivers must maintain at least GHS 20 before going online.
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-violet-500/25 bg-violet-500/10 px-4 py-3 text-right">
+                <p className="text-2xl font-black text-violet-300">
+                  GHS {walletBalance.toFixed(2)}
+                </p>
+
+                <p className="text-xs font-bold text-white/50">
+                  Current balance
+                </p>
+              </div>
+            </div>
+
+            <div
+              className={`mt-5 rounded-2xl border p-4 ${
+                walletReady
+                  ? "border-emerald-400/20 bg-emerald-400/10"
+                  : "border-red-400/20 bg-red-400/10"
+              }`}
+            >
+              <p
+                className={`font-black ${
+                  walletReady ? "text-emerald-300" : "text-red-300"
+                }`}
+              >
+                {walletReady
+                  ? "Wallet Ready — driver meets the GHS 20 minimum."
+                  : "Top-up required — minimum GHS 20 needed before going online."}
+              </p>
+
+              <p className="mt-2 text-sm text-white/60">
+                Minimum required balance: GHS 20.00
+              </p>
             </div>
           </div>
 
