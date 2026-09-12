@@ -267,7 +267,7 @@ export default function DriverDocumentUpload({
         {requiresExpiry && (
           <DatePicker
             selected={expiryDate}
-            onChange={(date) => setExpiryDate(date)}
+            onChange={(date: Date | null) => setExpiryDate(date)}
             dateFormat="dd/MM/yyyy"
             minDate={new Date()}
             placeholderText="Select expiry date"

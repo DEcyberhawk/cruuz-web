@@ -1,0 +1,2124 @@
+"use client";
+
+import {
+  FormEvent,
+  ReactNode,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import mapboxgl from "mapbox-gl";
+import "mapbox-gl/dist/mapbox-gl.css";
+
+import {
+  Accessibility,
+  ArrowRight,
+  BriefcaseBusiness,
+  Building2,
+  CalendarDays,
+  Car,
+  Check,
+  CreditCard,
+  LocateFixed,
+  MapPin,
+  Navigation,
+  Package,
+  Plane,
+  Route,
+  Search,
+  ShieldCheck,
+  Timer,
+  Users,
+} from "lucide-react";
+
+import {
+  GhanaLandmark,
+  searchGhanaLandmarks,
+} from "@/lib/ghana-landmarks";
+
+type BookingMode = "NOW" | "SCHEDULED";
+
+type RideType =
+  | "CRUUZ_GO"
+  | "COMFORT"
+  | "CRUUZ_XL"
+  | "EXECUTIVE"
+  | "AIRPORT"
+  | "BUSINESS"
+  | "DELIVERY"
+  | "ACCESS"
+  | "HOURLY";
+
+type PricingRideTypeId =
+  | "GO"
+  | "COMFORT"
+  | "XL"
+  | "EXEC"
+  | "AIRPORT"
+  | "DELIVERY"
+  | "ACCESS"
+  | "HOURLY";
+
+type PricingEstimate = {
+  rideTypeId: PricingRideTypeId;
+  currency: "GHS";
+  baseFare: number;
+  distanceFare: number;
+  timeFare: number;
+  totalFare: number;
+  formattedFare: string;
+  etaMinutes: number;
+};
+
+type AutomaticCampaignValidation = {
+  valid: boolean;
+  campaignId?: string;
+  promoCode?: string;
+  campaignName?: string;
+  originalFare: number;
+  discountAmount: number;
+  finalFare: number;
+  currency: "GHS";
+  message?: string;
+};
+
+type RouteInfo = {
+  distanceKm: number;
+  durationMinutes: number;
+};
+
+type GeoapifyFeature = {
+  type: "Feature";
+  properties: {
+    name?: string;
+    formatted?: string;
+    address_line1?: string;
+    address_line2?: string;
+    category?: string;
+    result_type?: string;
+    city?: string;
+    suburb?: string;
+    state?: string;
+    country?: string;
+    place_id?: string;
+    lat?: number;
+    lon?: number;
+  };
+  geometry: {
+    type: "Point";
+    coordinates: [number, number];
+  };
+};
+
+type SearchSuggestion = {
+  id: string;
+  name: string;
+  address: string;
+  category?: string;
+  latitude: number;
+  longitude: number;
+  source: "CRUUZ" | "GEOAPIFY";
+};
+
+type SelectedPlace = {
+  id: string;
+  name: string;
+  address: string;
+  latitude: number;
+  longitude: number;
+  source: "CRUUZ" | "GEOAPIFY" | "GPS";
+};
+
+const MAPBOX_TOKEN =
+  process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN || "";
+
+const GEOAPIFY_KEY =
+  process.env.NEXT_PUBLIC_GEOAPIFY_API_KEY || "";
+
+const CRUUZ_API_URL = (
+  process.env.NEXT_PUBLIC_CRUUZ_API_URL || ""
+).replace(/\/$/, "");
+
+const ACCRA_CENTER: [number, number] = [-0.187, 5.6037];
+
+const PRICING_TYPE_MAP: Record<
+  RideType,
+  PricingRideTypeId | null
+> = {
+  CRUUZ_GO: "GO",
+  COMFORT: "COMFORT",
+  CRUUZ_XL: "XL",
+  EXECUTIVE: "EXEC",
+  AIRPORT: "AIRPORT",
+  BUSINESS: null,
+  DELIVERY: "DELIVERY",
+  ACCESS: "ACCESS",
+  HOURLY: "HOURLY",
+};
+
+const rideTypes: Array<{
+  id: RideType;
+  name: string;
+  description: string;
+  icon: ReactNode;
+}> = [
+  {
+    id: "CRUUZ_GO",
+    name: "CRUUZ GO",
+    description: "Affordable everyday rides",
+    icon: <Car className="h-5 w-5" />,
+  },
+  {
+    id: "COMFORT",
+    name: "CRUUZ Comfort",
+    description: "More comfort for your journey",
+    icon: <Car className="h-5 w-5" />,
+  },
+  {
+    id: "CRUUZ_XL",
+    name: "CRUUZ XL",
+    description: "More room for groups and luggage",
+    icon: <Users className="h-5 w-5" />,
+  },
+  {
+    id: "EXECUTIVE",
+    name: "Executive",
+    description: "Premium business-class travel",
+    icon: <BriefcaseBusiness className="h-5 w-5" />,
+  },
+  {
+    id: "AIRPORT",
+    name: "Airport",
+    description: "Airport pickup and transfer",
+    icon: <Plane className="h-5 w-5" />,
+  },
+  {
+    id: "BUSINESS",
+    name: "Business",
+    description: "Corporate and company travel",
+    icon: <Building2 className="h-5 w-5" />,
+  },
+  {
+    id: "DELIVERY",
+    name: "Delivery",
+    description: "Send packages across the city",
+    icon: <Package className="h-5 w-5" />,
+  },
+  {
+    id: "ACCESS",
+    name: "Access",
+    description: "Accessible mobility support",
+    icon: <Accessibility className="h-5 w-5" />,
+  },
+  {
+    id: "HOURLY",
+    name: "Hourly",
+    description: "Keep a vehicle by the hour",
+    icon: <Timer className="h-5 w-5" />,
+  },
+];
+
+export default function WebBookingForm() {
+  const mapContainerRef = useRef<HTMLDivElement | null>(null);
+  const mapRef = useRef<mapboxgl.Map | null>(null);
+
+  const pickupMarkerRef = useRef<mapboxgl.Marker | null>(null);
+  const destinationMarkerRef =
+    useRef<mapboxgl.Marker | null>(null);
+
+  const pickupSearchAbortRef =
+    useRef<AbortController | null>(null);
+  const destinationSearchAbortRef =
+    useRef<AbortController | null>(null);
+  const pricingAbortRef =
+  useRef<AbortController | null>(null);
+
+const campaignPreviewAbortRef =
+  useRef<AbortController | null>(null);
+
+const routeAbortRef =
+  useRef<AbortController | null>(null);
+
+  const [bookingMode, setBookingMode] =
+    useState<BookingMode>("NOW");
+
+  const [rideType, setRideType] =
+    useState<RideType>("CRUUZ_GO");
+
+  const [pickupText, setPickupText] = useState("");
+  const [destinationText, setDestinationText] =
+    useState("");
+
+  const [pickup, setPickup] =
+    useState<SelectedPlace | null>(null);
+
+  const [destination, setDestination] =
+    useState<SelectedPlace | null>(null);
+
+  const [pickupSuggestions, setPickupSuggestions] =
+    useState<SearchSuggestion[]>([]);
+
+  const [
+    destinationSuggestions,
+    setDestinationSuggestions,
+  ] = useState<SearchSuggestion[]>([]);
+
+  const [pickupSearching, setPickupSearching] =
+    useState(false);
+
+  const [
+    destinationSearching,
+    setDestinationSearching,
+  ] = useState(false);
+
+  const [routeInfo, setRouteInfo] =
+    useState<RouteInfo | null>(null);
+
+  const [routeLoading, setRouteLoading] =
+    useState(false);
+
+  const [pricing, setPricing] =
+    useState<PricingEstimate[]>([]);
+
+  const [pricingLoading, setPricingLoading] =
+    useState(false);
+
+  const [pricingError, setPricingError] =
+    useState<string | null>(null);
+
+const [
+  automaticBenefit,
+  setAutomaticBenefit,
+] = useState<AutomaticCampaignValidation | null>(
+  null
+);
+
+const [
+  automaticBenefitLoading,
+  setAutomaticBenefitLoading,
+] = useState(false);
+
+  const [scheduledDate, setScheduledDate] =
+    useState("");
+
+  const [scheduledTime, setScheduledTime] =
+    useState("");
+
+  const [fullName, setFullName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
+
+  const [deliveryRecipient, setDeliveryRecipient] =
+    useState("");
+
+  const [deliveryPhone, setDeliveryPhone] =
+    useState("");
+
+  const [accessNotes, setAccessNotes] = useState("");
+
+  const [hourlyHours, setHourlyHours] = useState("1");
+
+  const [message, setMessage] = useState<string | null>(
+    null
+  );
+
+  const selectedPricingId =
+    PRICING_TYPE_MAP[rideType];
+
+  const selectedFare = useMemo(() => {
+    if (!selectedPricingId) return null;
+
+    return (
+      pricing.find(
+        (item) =>
+          item.rideTypeId === selectedPricingId
+      ) || null
+    );
+  }, [pricing, selectedPricingId]);
+
+  useEffect(() => {
+    if (!MAPBOX_TOKEN || !mapContainerRef.current) {
+      return;
+    }
+
+    mapboxgl.accessToken = MAPBOX_TOKEN;
+
+    const map = new mapboxgl.Map({
+      container: mapContainerRef.current,
+      style: "mapbox://styles/mapbox/dark-v11",
+      center: ACCRA_CENTER,
+      zoom: 11,
+    });
+
+    map.addControl(
+      new mapboxgl.NavigationControl(),
+      "top-right"
+    );
+
+    mapRef.current = map;
+
+    return () => {
+      pickupMarkerRef.current?.remove();
+      destinationMarkerRef.current?.remove();
+      map.remove();
+      mapRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (
+      pickup &&
+      normalizeKey(pickupText) ===
+        normalizeKey(pickup.name)
+    ) {
+      return;
+    }
+
+    if (pickupText.trim().length < 2) {
+      pickupSearchAbortRef.current?.abort();
+      setPickupSuggestions([]);
+      setPickupSearching(false);
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      void searchLocation(
+        pickupText,
+        "pickup"
+      );
+    }, 300);
+
+    return () => {
+      window.clearTimeout(timeout);
+    };
+  }, [pickupText, pickup]);
+
+  useEffect(() => {
+    if (
+      destination &&
+      normalizeKey(destinationText) ===
+        normalizeKey(destination.name)
+    ) {
+      return;
+    }
+
+    if (destinationText.trim().length < 2) {
+      destinationSearchAbortRef.current?.abort();
+      setDestinationSuggestions([]);
+      setDestinationSearching(false);
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      void searchLocation(
+        destinationText,
+        "destination"
+      );
+    }, 300);
+
+    return () => {
+      window.clearTimeout(timeout);
+    };
+  }, [destinationText, destination]);
+
+  useEffect(() => {
+    if (!pickup || !destination) {
+      routeAbortRef.current?.abort();
+      clearRoute();
+      setRouteInfo(null);
+      setPricing([]);
+      setPricingError(null);
+      return;
+    }
+
+    void calculateRoute(pickup, destination);
+  }, [pickup, destination]);
+
+  useEffect(() => {
+    if (!routeInfo) {
+      pricingAbortRef.current?.abort();
+      setPricing([]);
+      return;
+    }
+
+    void loadPricing(routeInfo);
+  }, [routeInfo]);
+
+
+useEffect(() => {
+  campaignPreviewAbortRef.current?.abort();
+  setAutomaticBenefit(null);
+  setAutomaticBenefitLoading(false);
+
+  if (
+    !selectedFare ||
+    !selectedPricingId ||
+    selectedPricingId === "DELIVERY" ||
+    !CRUUZ_API_URL
+  ) {
+    return;
+  }
+
+  const token = localStorage.getItem(
+    "cruuz_web_token"
+  );
+
+  if (!token) {
+    return;
+  }
+
+  const controller = new AbortController();
+  campaignPreviewAbortRef.current = controller;
+
+  async function loadAutomaticBenefit() {
+    setAutomaticBenefitLoading(true);
+
+    try {
+      const response = await fetch(
+        `${CRUUZ_API_URL}/campaigns/automatic-preview`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            originalFare: selectedFare!.totalFare,
+            rideTypeId: selectedPricingId,
+          }),
+          signal: controller.signal,
+        }
+      );
+
+      const data = await response.json();
+
+      if (controller.signal.aborted) {
+        return;
+      }
+
+      if (
+        response.ok &&
+        data.success &&
+        data.validation?.valid
+      ) {
+        setAutomaticBenefit(
+          data.validation as AutomaticCampaignValidation
+        );
+      } else {
+        setAutomaticBenefit(null);
+      }
+    } catch (error) {
+      if (
+        error instanceof DOMException &&
+        error.name === "AbortError"
+      ) {
+        return;
+      }
+
+      setAutomaticBenefit(null);
+    } finally {
+      if (!controller.signal.aborted) {
+        setAutomaticBenefitLoading(false);
+      }
+    }
+  }
+
+  void loadAutomaticBenefit();
+
+  return () => {
+    controller.abort();
+  };
+}, [selectedFare, selectedPricingId]);
+
+  async function searchLocation(
+    query: string,
+    field: "pickup" | "destination"
+  ) {
+    const trimmed = query.trim();
+    if (trimmed.length < 2) return;
+
+    const localResults = searchGhanaLandmarks(
+      trimmed,
+      6
+    ).map(mapLocalLandmark);
+
+    if (field === "pickup") {
+      pickupSearchAbortRef.current?.abort();
+
+      const controller = new AbortController();
+      pickupSearchAbortRef.current = controller;
+
+      setPickupSuggestions(localResults);
+      setPickupSearching(true);
+
+      try {
+        const remoteResults =
+          await searchGeoapify(
+            trimmed,
+            controller.signal
+          );
+
+        if (controller.signal.aborted) return;
+
+        setPickupSuggestions(
+          dedupeSuggestions([
+            ...localResults,
+            ...remoteResults,
+          ])
+        );
+      } catch (error) {
+        if (
+          error instanceof DOMException &&
+          error.name === "AbortError"
+        ) {
+          return;
+        }
+
+        setPickupSuggestions(localResults);
+      } finally {
+        if (!controller.signal.aborted) {
+          setPickupSearching(false);
+        }
+      }
+
+      return;
+    }
+
+    destinationSearchAbortRef.current?.abort();
+
+    const controller = new AbortController();
+    destinationSearchAbortRef.current = controller;
+
+    setDestinationSuggestions(localResults);
+    setDestinationSearching(true);
+
+    try {
+      const remoteResults =
+        await searchGeoapify(
+          trimmed,
+          controller.signal
+        );
+
+      if (controller.signal.aborted) return;
+
+      setDestinationSuggestions(
+        dedupeSuggestions([
+          ...localResults,
+          ...remoteResults,
+        ])
+      );
+    } catch (error) {
+      if (
+        error instanceof DOMException &&
+        error.name === "AbortError"
+      ) {
+        return;
+      }
+
+      setDestinationSuggestions(localResults);
+    } finally {
+      if (!controller.signal.aborted) {
+        setDestinationSearching(false);
+      }
+    }
+  }
+
+  async function searchGeoapify(
+    query: string,
+    signal: AbortSignal
+  ): Promise<SearchSuggestion[]> {
+    if (!GEOAPIFY_KEY) return [];
+
+    const params = new URLSearchParams({
+      text: query,
+      filter: "countrycode:gh",
+      bias: `proximity:${ACCRA_CENTER[0]},${ACCRA_CENTER[1]}`,
+      limit: "10",
+      format: "geojson",
+      apiKey: GEOAPIFY_KEY,
+    });
+
+    const response = await fetch(
+      `https://api.geoapify.com/v1/geocode/autocomplete?${params.toString()}`,
+      { signal }
+    );
+
+    if (!response.ok) {
+      throw new Error(
+        "Geoapify location search failed"
+      );
+    }
+
+    const data = (await response.json()) as {
+      features?: GeoapifyFeature[];
+    };
+
+    return (data.features || [])
+      .filter(
+        (feature) =>
+          Array.isArray(
+            feature.geometry.coordinates
+          ) &&
+          feature.geometry.coordinates.length >= 2
+      )
+      .map((feature) => {
+        const [longitude, latitude] =
+          feature.geometry.coordinates;
+
+        const properties = feature.properties;
+
+        const name =
+          properties.name ||
+          properties.address_line1 ||
+          properties.city ||
+          properties.suburb ||
+          properties.formatted ||
+          query;
+
+        return {
+          id:
+            properties.place_id ||
+            `${longitude}-${latitude}-${name}`,
+          name,
+          address:
+            properties.formatted ||
+            [
+              properties.address_line1,
+              properties.address_line2,
+            ]
+              .filter(Boolean)
+              .join(", "),
+          category:
+            properties.category ||
+            properties.result_type,
+          longitude,
+          latitude,
+          source: "GEOAPIFY" as const,
+        };
+      });
+  }
+
+  function chooseSuggestion(
+    suggestion: SearchSuggestion,
+    field: "pickup" | "destination"
+  ) {
+    const place: SelectedPlace = {
+      id: suggestion.id,
+      name: suggestion.name,
+      address: suggestion.address,
+      latitude: suggestion.latitude,
+      longitude: suggestion.longitude,
+      source: suggestion.source,
+    };
+
+    if (field === "pickup") {
+      setPickup(place);
+      setPickupText(place.name);
+      setPickupSuggestions([]);
+      placeMarker(place, "pickup");
+      return;
+    }
+
+    setDestination(place);
+    setDestinationText(place.name);
+    setDestinationSuggestions([]);
+    placeMarker(place, "destination");
+  }
+
+  function placeMarker(
+    place: SelectedPlace,
+    field: "pickup" | "destination"
+  ) {
+    const map = mapRef.current;
+    if (!map) return;
+
+    const marker =
+      field === "pickup"
+        ? new mapboxgl.Marker({
+            color: "#16a34a",
+          })
+        : new mapboxgl.Marker({
+            color: "#7c3aed",
+          });
+
+    marker
+      .setLngLat([
+        place.longitude,
+        place.latitude,
+      ])
+      .addTo(map);
+
+    if (field === "pickup") {
+      pickupMarkerRef.current?.remove();
+      pickupMarkerRef.current = marker;
+    } else {
+      destinationMarkerRef.current?.remove();
+      destinationMarkerRef.current = marker;
+    }
+
+    map.flyTo({
+      center: [
+        place.longitude,
+        place.latitude,
+      ],
+      zoom: 14,
+    });
+  }
+
+  async function useCurrentLocation() {
+    if (!navigator.geolocation) {
+      setMessage(
+        "Your browser does not support location services."
+      );
+      return;
+    }
+
+    setMessage(null);
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const latitude =
+          position.coords.latitude;
+
+        const longitude =
+          position.coords.longitude;
+
+        let name = "Current location";
+        let address = "Current location";
+
+        if (GEOAPIFY_KEY) {
+          try {
+            const params = new URLSearchParams({
+              lat: String(latitude),
+              lon: String(longitude),
+              format: "geojson",
+              apiKey: GEOAPIFY_KEY,
+            });
+
+            const response = await fetch(
+              `https://api.geoapify.com/v1/geocode/reverse?${params.toString()}`
+            );
+
+            if (response.ok) {
+              const data = (await response.json()) as {
+                features?: GeoapifyFeature[];
+              };
+
+              const feature =
+                data.features?.[0];
+
+              if (feature) {
+                name =
+                  feature.properties.name ||
+                  feature.properties
+                    .address_line1 ||
+                  "Current location";
+
+                address =
+                  feature.properties.formatted ||
+                  name;
+              }
+            }
+          } catch {
+            // GPS coordinates remain valid.
+          }
+        }
+
+        const place: SelectedPlace = {
+          id: `gps-${latitude}-${longitude}`,
+          name,
+          address,
+          latitude,
+          longitude,
+          source: "GPS",
+        };
+
+        setPickup(place);
+        setPickupText(name);
+        setPickupSuggestions([]);
+        placeMarker(place, "pickup");
+      },
+      () => {
+        setMessage(
+          "We could not access your current location. Check your browser location permission."
+        );
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 30000,
+      }
+    );
+  }
+
+  async function calculateRoute(
+    from: SelectedPlace,
+    to: SelectedPlace
+  ) {
+    if (!MAPBOX_TOKEN) {
+      setRouteInfo(null);
+      return;
+    }
+
+    routeAbortRef.current?.abort();
+
+    const controller = new AbortController();
+    routeAbortRef.current = controller;
+
+    setRouteLoading(true);
+    setRouteInfo(null);
+    setPricing([]);
+
+    try {
+      const coordinates =
+        `${from.longitude},${from.latitude};` +
+        `${to.longitude},${to.latitude}`;
+
+      const params = new URLSearchParams({
+        geometries: "geojson",
+        overview: "full",
+        steps: "false",
+        access_token: MAPBOX_TOKEN,
+      });
+
+      const response = await fetch(
+        `https://api.mapbox.com/directions/v5/mapbox/driving/${coordinates}?${params.toString()}`,
+        {
+          signal: controller.signal,
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(
+          "Unable to calculate the route"
+        );
+      }
+
+      const data = await response.json();
+
+      const route = data.routes?.[0];
+
+      if (!route) {
+        throw new Error(
+          "No driving route was found"
+        );
+      }
+
+      const distanceKm =
+        Number(route.distance || 0) / 1000;
+
+      const durationMinutes =
+        Number(route.duration || 0) / 60;
+
+      setRouteInfo({
+        distanceKm,
+        durationMinutes,
+      });
+
+      drawRoute(route.geometry);
+
+      fitRouteBounds(from, to);
+    } catch (error) {
+      if (
+        error instanceof DOMException &&
+        error.name === "AbortError"
+      ) {
+        return;
+      }
+
+      setRouteInfo(null);
+      setPricing([]);
+      setMessage(
+        "We could not calculate this route. Please try another pickup or destination."
+      );
+    } finally {
+      if (!controller.signal.aborted) {
+        setRouteLoading(false);
+      }
+    }
+  }
+
+  async function loadPricing(
+    route: RouteInfo
+  ) {
+    pricingAbortRef.current?.abort();
+
+    if (!CRUUZ_API_URL) {
+      setPricing([]);
+      setPricingError(
+        "CRUUZ API URL is not configured."
+      );
+      return;
+    }
+
+    const controller = new AbortController();
+    pricingAbortRef.current = controller;
+
+    setPricingLoading(true);
+    setPricingError(null);
+
+    try {
+      const response = await fetch(
+        `${CRUUZ_API_URL}/pricing/options`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            distanceKm: Number(
+              route.distanceKm.toFixed(3)
+            ),
+            durationMinutes: Number(
+              route.durationMinutes.toFixed(3)
+            ),
+          }),
+          signal: controller.signal,
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(
+          data.message ||
+            "CRUUZ pricing service returned an error."
+        );
+      }
+
+      const rideOptions =
+        Array.isArray(data.rideOptions)
+          ? (data.rideOptions as PricingEstimate[])
+          : [];
+
+      setPricing(rideOptions);
+    } catch (error) {
+      if (
+        error instanceof DOMException &&
+        error.name === "AbortError"
+      ) {
+        return;
+      }
+
+      setPricing([]);
+
+      setPricingError(
+        error instanceof Error
+          ? error.message
+          : "Unable to load CRUUZ fares."
+      );
+    } finally {
+      if (!controller.signal.aborted) {
+        setPricingLoading(false);
+      }
+    }
+  }
+
+  function drawRoute(geometry: {
+    type: string;
+    coordinates: number[][];
+  }) {
+    const map = mapRef.current;
+    if (!map) return;
+
+    const render = () => {
+      const source =
+        map.getSource(
+          "cruuz-route"
+        ) as mapboxgl.GeoJSONSource | undefined;
+
+      const routeData = {
+        type: "Feature",
+        properties: {},
+        geometry,
+      };
+
+      if (source) {
+        source.setData(routeData as any);
+        return;
+      }
+
+      map.addSource("cruuz-route", {
+        type: "geojson",
+        data: routeData as any,
+      });
+
+      map.addLayer({
+        id: "cruuz-route-line",
+        type: "line",
+        source: "cruuz-route",
+        layout: {
+          "line-cap": "round",
+          "line-join": "round",
+        },
+        paint: {
+          "line-color": "#7c3aed",
+          "line-width": 6,
+          "line-opacity": 0.9,
+        },
+      });
+    };
+
+    if (map.isStyleLoaded()) {
+      render();
+    } else {
+      map.once("load", render);
+    }
+  }
+
+  function clearRoute() {
+    const map = mapRef.current;
+    if (!map || !map.isStyleLoaded()) return;
+
+    if (map.getLayer("cruuz-route-line")) {
+      map.removeLayer("cruuz-route-line");
+    }
+
+    if (map.getSource("cruuz-route")) {
+      map.removeSource("cruuz-route");
+    }
+  }
+
+  function fitRouteBounds(
+    from: SelectedPlace,
+    to: SelectedPlace
+  ) {
+    const map = mapRef.current;
+    if (!map) return;
+
+    const bounds = new mapboxgl.LngLatBounds();
+
+    bounds.extend([
+      from.longitude,
+      from.latitude,
+    ]);
+
+    bounds.extend([
+      to.longitude,
+      to.latitude,
+    ]);
+
+    map.fitBounds(bounds, {
+      padding: 80,
+      maxZoom: 14,
+      duration: 900,
+    });
+  }
+
+  function handleSubmit(
+    event: FormEvent<HTMLFormElement>
+  ) {
+    event.preventDefault();
+    setMessage(null);
+
+    if (!pickup || !destination) {
+      setMessage(
+        "Select a valid pickup and destination."
+      );
+      return;
+    }
+
+    if (
+      bookingMode === "SCHEDULED" &&
+      (!scheduledDate || !scheduledTime)
+    ) {
+      setMessage(
+        "Choose the date and time for your scheduled ride."
+      );
+      return;
+    }
+
+    if (!fullName.trim() || !phone.trim()) {
+      setMessage(
+        "Enter your name and phone number."
+      );
+      return;
+    }
+
+    if (
+      rideType !== "BUSINESS" &&
+      !selectedFare
+    ) {
+      setMessage(
+        "Please wait for CRUUZ to calculate your fare."
+      );
+      return;
+    }
+
+    setMessage(
+      rideType === "BUSINESS"
+        ? "Business booking details are ready. Corporate account booking will be connected to the CRUUZ business backend next."
+        : `Booking preview ready. Your current CRUUZ estimated fare is ${selectedFare?.formattedFare}. No payment has been taken yet.`
+    );
+  }
+
+  return (
+    <form
+      onSubmit={handleSubmit}
+      className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_380px]"
+    >
+      <div className="space-y-8">
+        <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-5 shadow-2xl backdrop-blur sm:p-7">
+          <div className="mb-6">
+            <p className="text-sm font-semibold uppercase tracking-[0.18em] text-violet-400">
+              When do you want to move?
+            </p>
+
+            <h2 className="mt-2 text-2xl font-bold text-white">
+              Book your CRUUZ
+            </h2>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <ModeButton
+              active={bookingMode === "NOW"}
+              onClick={() =>
+                setBookingMode("NOW")
+              }
+              icon={
+                <Navigation className="h-5 w-5" />
+              }
+              title="Ride now"
+              subtitle="Request your ride"
+            />
+
+            <ModeButton
+              active={
+                bookingMode === "SCHEDULED"
+              }
+              onClick={() =>
+                setBookingMode("SCHEDULED")
+              }
+              icon={
+                <CalendarDays className="h-5 w-5" />
+              }
+              title="Schedule"
+              subtitle="Book ahead"
+            />
+          </div>
+
+          {bookingMode === "SCHEDULED" && (
+            <div className="mt-5 grid gap-4 sm:grid-cols-2">
+              <TextInput
+                label="Date"
+                type="date"
+                value={scheduledDate}
+                onChange={setScheduledDate}
+              />
+
+              <TextInput
+                label="Time"
+                type="time"
+                value={scheduledTime}
+                onChange={setScheduledTime}
+              />
+            </div>
+          )}
+        </section>
+
+        <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-5 shadow-2xl backdrop-blur sm:p-7">
+          <div className="mb-5 flex items-center justify-between gap-4">
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-[0.18em] text-violet-400">
+                Your route
+              </p>
+
+              <h2 className="mt-2 text-2xl font-bold text-white">
+                Where are you going?
+              </h2>
+            </div>
+
+            <button
+              type="button"
+              onClick={useCurrentLocation}
+              className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/10"
+            >
+              <LocateFixed className="h-4 w-4" />
+              My location
+            </button>
+          </div>
+
+          <div className="space-y-4">
+            <LocationInput
+              label="Pickup"
+              value={pickupText}
+              onChange={(value) => {
+                setPickupText(value);
+
+                if (
+                  pickup &&
+                  normalizeKey(value) !==
+                    normalizeKey(pickup.name)
+                ) {
+                  setPickup(null);
+                  pickupMarkerRef.current?.remove();
+                  pickupMarkerRef.current = null;
+                }
+              }}
+              suggestions={pickupSuggestions}
+              searching={pickupSearching}
+              onSelect={(suggestion) =>
+                chooseSuggestion(
+                  suggestion,
+                  "pickup"
+                )
+              }
+              markerClass="bg-emerald-500"
+            />
+
+            <LocationInput
+              label="Destination"
+              value={destinationText}
+              onChange={(value) => {
+                setDestinationText(value);
+
+                if (
+                  destination &&
+                  normalizeKey(value) !==
+                    normalizeKey(
+                      destination.name
+                    )
+                ) {
+                  setDestination(null);
+                  destinationMarkerRef.current?.remove();
+                  destinationMarkerRef.current =
+                    null;
+                }
+              }}
+              suggestions={
+                destinationSuggestions
+              }
+              searching={destinationSearching}
+              onSelect={(suggestion) =>
+                chooseSuggestion(
+                  suggestion,
+                  "destination"
+                )
+              }
+              markerClass="bg-violet-500"
+            />
+          </div>
+
+          <div className="mt-6 overflow-hidden rounded-3xl border border-white/10 bg-black">
+            <div
+              ref={mapContainerRef}
+              className="h-[360px] w-full sm:h-[430px]"
+            />
+          </div>
+
+          {routeLoading && (
+            <div className="mt-4 rounded-2xl border border-violet-500/20 bg-violet-500/10 px-4 py-3 text-sm text-violet-100">
+              Calculating your CRUUZ route...
+            </div>
+          )}
+
+          {routeInfo && (
+            <div className="mt-4 grid grid-cols-2 gap-3">
+              <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                <div className="flex items-center gap-2 text-sm text-white/60">
+                  <Route className="h-4 w-4" />
+                  Distance
+                </div>
+
+                <p className="mt-2 text-xl font-bold text-white">
+                  {routeInfo.distanceKm.toFixed(
+                    1
+                  )}{" "}
+                  km
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                <div className="flex items-center gap-2 text-sm text-white/60">
+                  <Timer className="h-4 w-4" />
+                  Estimated trip
+                </div>
+
+                <p className="mt-2 text-xl font-bold text-white">
+                  {Math.round(
+                    routeInfo.durationMinutes
+                  )}{" "}
+                  min
+                </p>
+              </div>
+            </div>
+          )}
+        </section>
+
+        <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-5 shadow-2xl backdrop-blur sm:p-7">
+          <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-[0.18em] text-violet-400">
+                Choose your service
+              </p>
+
+              <h2 className="mt-2 text-2xl font-bold text-white">
+                Ride your way
+              </h2>
+            </div>
+
+            {pricingLoading && (
+              <span className="rounded-full bg-violet-500/10 px-3 py-1.5 text-xs font-semibold text-violet-300">
+                Calculating CRUUZ fares...
+              </span>
+            )}
+          </div>
+
+          {pricingError && (
+            <div className="mb-5 rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-200">
+              <p className="font-semibold">
+                Fare service unavailable
+              </p>
+
+              <p className="mt-1">
+                {pricingError}
+              </p>
+
+              <p className="mt-2 text-red-100/70">
+                Make sure the CRUUZ API is
+                running on {CRUUZ_API_URL || "the configured API URL"}.
+              </p>
+            </div>
+          )}
+
+          <div className="grid gap-3 md:grid-cols-2">
+            {rideTypes.map((item) => {
+              const pricingId =
+                PRICING_TYPE_MAP[item.id];
+
+              const fare = pricingId
+                ? pricing.find(
+                    (estimate) =>
+                      estimate.rideTypeId ===
+                      pricingId
+                  )
+                : null;
+
+              const active =
+                rideType === item.id;
+
+              return (
+                <button
+                  type="button"
+                  key={item.id}
+                  onClick={() =>
+                    setRideType(item.id)
+                  }
+                  className={[
+                    "rounded-2xl border p-4 text-left transition",
+                    active
+                      ? "border-violet-500 bg-violet-500/10 shadow-lg shadow-violet-950/20"
+                      : "border-white/10 bg-white/[0.03] hover:border-white/20 hover:bg-white/[0.06]",
+                  ].join(" ")}
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex min-w-0 gap-3">
+                      <div
+                        className={[
+                          "flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl",
+                          active
+                            ? "bg-violet-500 text-white"
+                            : "bg-white/10 text-white",
+                        ].join(" ")}
+                      >
+                        {item.icon}
+                      </div>
+
+                      <div className="min-w-0">
+                        <p className="font-bold text-white">
+                          {item.name}
+                        </p>
+
+                        <p className="mt-1 text-sm leading-5 text-white/55">
+                          {item.description}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="shrink-0 text-right">
+                      {item.id ===
+                      "BUSINESS" ? (
+                        <span className="text-sm font-bold text-violet-300">
+                          Corporate
+                        </span>
+                      ) : pricingLoading ? (
+                        <span className="text-xs text-white/50">
+                          ...
+                        </span>
+                      ) : fare ? (
+                        <>
+                          <p className="font-extrabold text-white">
+                            GH₵
+                            {fare.totalFare.toFixed(
+                              2
+                            )}
+                          </p>
+
+                          <p className="mt-1 text-xs text-white/45">
+                            estimate
+                          </p>
+                        </>
+                      ) : (
+                        <span className="text-xs text-white/40">
+                          Select route
+                        </span>
+                      )}
+
+                      {active && (
+                        <div className="mt-2 flex justify-end">
+                          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-violet-500 text-white">
+                            <Check className="h-3 w-3" />
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
+         {selectedFare && (
+  <div className="mt-5 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-4">
+    <div className="flex items-start justify-between gap-4">
+      <div>
+        <p className="text-sm font-semibold text-emerald-300">
+          CRUUZ live estimated fare
+        </p>
+
+        <p className="mt-1 text-xs text-white/50">
+          Calculated by the CRUUZ Pricing API
+          from your route distance and estimated
+          journey time.
+        </p>
+      </div>
+
+      <div className="shrink-0 text-right">
+        {automaticBenefit?.valid ? (
+          <>
+            <p className="text-xs text-white/45">
+              Final estimate
+            </p>
+
+            <p className="text-2xl font-black text-white">
+              GH₵
+              {automaticBenefit.finalFare.toFixed(2)}
+            </p>
+          </>
+        ) : (
+          <p className="text-2xl font-black text-white">
+            GH₵
+            {selectedFare.totalFare.toFixed(2)}
+          </p>
+        )}
+      </div>
+    </div>
+
+    {automaticBenefitLoading && (
+      <div className="mt-4 rounded-xl border border-white/10 bg-black/10 px-3 py-2 text-xs text-white/60">
+        Checking available rider benefits...
+      </div>
+    )}
+
+    {automaticBenefit?.valid && (
+      <div className="mt-4 rounded-2xl border border-violet-400/20 bg-violet-500/10 p-4">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <p className="font-semibold text-violet-200">
+              {automaticBenefit.campaignName ||
+                "First Rider Benefit"}
+            </p>
+
+            <p className="mt-1 text-xs text-white/50">
+              Applied automatically by CRUUZ.
+            </p>
+          </div>
+
+          <span className="rounded-full bg-emerald-500/15 px-3 py-1.5 text-sm font-bold text-emerald-300">
+            -GH₵
+            {automaticBenefit.discountAmount.toFixed(2)}
+          </span>
+        </div>
+
+        <div className="mt-4 space-y-2 border-t border-white/10 pt-4 text-sm">
+          <div className="flex justify-between gap-4 text-white/60">
+            <span>Standard fare</span>
+            <span>
+              GH₵
+              {automaticBenefit.originalFare.toFixed(2)}
+            </span>
+          </div>
+
+          <div className="flex justify-between gap-4 text-emerald-300">
+            <span>Benefit discount</span>
+            <span>
+              -GH₵
+              {automaticBenefit.discountAmount.toFixed(2)}
+            </span>
+          </div>
+
+          <div className="flex justify-between gap-4 border-t border-white/10 pt-2 font-bold text-white">
+            <span>Estimated fare</span>
+            <span>
+              GH₵
+              {automaticBenefit.finalFare.toFixed(2)}
+            </span>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {!automaticBenefit &&
+      !automaticBenefitLoading &&
+      selectedPricingId !== "DELIVERY" && (
+        <p className="mt-4 text-xs text-white/45">
+          Eligible new riders can receive the
+          CRUUZ First Rider Benefit automatically
+          after signing in.
+        </p>
+      )}
+
+    <div className="mt-4 grid gap-2 text-sm sm:grid-cols-3">
+      <FarePart
+        label="Base"
+        value={selectedFare.baseFare}
+      />
+
+      <FarePart
+        label="Distance"
+        value={selectedFare.distanceFare}
+      />
+
+      <FarePart
+        label="Time"
+        value={selectedFare.timeFare}
+      />
+    </div>
+  </div>
+)}
+        </section>
+
+        {rideType === "DELIVERY" && (
+          <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-5 sm:p-7">
+            <h2 className="text-xl font-bold text-white">
+              Delivery details
+            </h2>
+
+            <div className="mt-5 grid gap-4 sm:grid-cols-2">
+              <TextInput
+                label="Recipient name"
+                value={deliveryRecipient}
+                onChange={
+                  setDeliveryRecipient
+                }
+                placeholder="Recipient"
+              />
+
+              <TextInput
+                label="Recipient phone"
+                value={deliveryPhone}
+                onChange={setDeliveryPhone}
+                placeholder="+233..."
+              />
+            </div>
+          </section>
+        )}
+
+        {rideType === "ACCESS" && (
+          <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-5 sm:p-7">
+            <h2 className="text-xl font-bold text-white">
+              Accessibility request
+            </h2>
+
+            <textarea
+              value={accessNotes}
+              onChange={(event) =>
+                setAccessNotes(
+                  event.target.value
+                )
+              }
+              placeholder="Tell us about any accessibility or mobility support you may need."
+              className="mt-5 min-h-28 w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-white outline-none placeholder:text-white/30 focus:border-violet-500"
+            />
+          </section>
+        )}
+
+        {rideType === "HOURLY" && (
+          <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-5 sm:p-7">
+            <h2 className="text-xl font-bold text-white">
+              Hourly booking
+            </h2>
+
+            <div className="mt-5 max-w-xs">
+              <TextInput
+                label="Number of hours"
+                type="number"
+                value={hourlyHours}
+                onChange={setHourlyHours}
+              />
+            </div>
+          </section>
+        )}
+
+        <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-5 shadow-2xl backdrop-blur sm:p-7">
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-[0.18em] text-violet-400">
+              Rider details
+            </p>
+
+            <h2 className="mt-2 text-2xl font-bold text-white">
+              How can we reach you?
+            </h2>
+          </div>
+
+          <div className="mt-5 grid gap-4 sm:grid-cols-2">
+            <TextInput
+              label="Full name"
+              value={fullName}
+              onChange={setFullName}
+              placeholder="Your full name"
+            />
+
+            <TextInput
+              label="Phone number"
+              value={phone}
+              onChange={setPhone}
+              placeholder="+233..."
+            />
+
+            <div className="sm:col-span-2">
+              <TextInput
+                label="Email address"
+                type="email"
+                value={email}
+                onChange={setEmail}
+                placeholder="Optional"
+              />
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <aside className="xl:sticky xl:top-28 xl:self-start">
+        <div className="rounded-3xl border border-white/10 bg-[#121218] p-6 shadow-2xl">
+          <p className="text-sm font-semibold uppercase tracking-[0.18em] text-violet-400">
+            Booking summary
+          </p>
+
+          <h2 className="mt-2 text-2xl font-bold text-white">
+            Your CRUUZ
+          </h2>
+
+          <div className="mt-6 space-y-4">
+            <Summary
+              label="Pickup"
+              value={
+                pickup?.name ||
+                "Choose pickup"
+              }
+            />
+
+            <Summary
+              label="Destination"
+              value={
+                destination?.name ||
+                "Choose destination"
+              }
+            />
+
+            <Summary
+              label="When"
+              value={
+                bookingMode === "NOW"
+                  ? "Ride now"
+                  : scheduledDate &&
+                      scheduledTime
+                    ? `${scheduledDate} at ${scheduledTime}`
+                    : "Scheduled ride"
+              }
+            />
+
+            <Summary
+              label="Service"
+              value={
+                rideTypes.find(
+                  (item) =>
+                    item.id === rideType
+                )?.name || rideType
+              }
+            />
+
+            {routeInfo && (
+              <>
+                <Summary
+                  label="Distance"
+                  value={`${routeInfo.distanceKm.toFixed(
+                    1
+                  )} km`}
+                />
+
+                <Summary
+                  label="Estimated trip"
+                  value={`${Math.round(
+                    routeInfo.durationMinutes
+                  )} min`}
+                />
+              </>
+            )}
+          </div>
+
+          <div className="my-6 h-px bg-white/10" />
+
+          {rideType === "BUSINESS" ? (
+            <div className="rounded-2xl bg-white/5 p-4">
+              <p className="text-sm font-semibold text-white">
+                Business account booking
+              </p>
+
+              <p className="mt-1 text-xs leading-5 text-white/50">
+                Business is an account type, not
+                one of the current CRUUZ vehicle
+                pricing classes. Corporate vehicle
+                selection will use the existing
+                CRUUZ ride classes.
+              </p>
+            </div>
+          ) : selectedFare ? (
+            <div>
+              <div className="flex items-end justify-between gap-4">
+                <div>
+                  <p className="text-sm text-white/50">
+                    Estimated fare
+                  </p>
+
+                  <p className="mt-1 text-xs text-white/40">
+                    CRUUZ Pricing Engine
+                  </p>
+                </div>
+
+                <p className="text-3xl font-black text-white">
+                  GH₵
+                  {selectedFare.totalFare.toFixed(
+                    2
+                  )}
+                </p>
+              </div>
+
+              <div className="mt-4 rounded-2xl border border-violet-500/20 bg-violet-500/10 p-3 text-xs leading-5 text-violet-100">
+                Promotions and the 10% First Rider
+                Benefit will be applied by the
+                CRUUZ Campaign Engine when rider
+                account eligibility is connected.
+              </div>
+            </div>
+          ) : (
+            <div className="rounded-2xl bg-white/5 p-4 text-sm text-white/50">
+              {pricingLoading
+                ? "CRUUZ is calculating your fare..."
+                : "Choose your pickup and destination to see the estimated fare."}
+            </div>
+          )}
+
+          <button
+            type="submit"
+            disabled={
+              rideType !== "BUSINESS" &&
+              (!selectedFare ||
+                pricingLoading ||
+                routeLoading)
+            }
+            className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-violet-600 px-5 py-4 font-bold text-white transition hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Continue booking
+            <ArrowRight className="h-5 w-5" />
+          </button>
+
+          <div className="mt-5 space-y-3 border-t border-white/10 pt-5 text-xs leading-5 text-white/45">
+            <p className="flex gap-2">
+              <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" />
+              Fare calculations come from the
+              existing CRUUZ backend pricing
+              service.
+            </p>
+
+            <p className="flex gap-2">
+              <CreditCard className="mt-0.5 h-4 w-4 shrink-0 text-violet-400" />
+              No payment is taken on this booking
+              preview yet.
+            </p>
+
+            <p>
+              Ghana location search uses CRUUZ
+              Places and Geoapify. Mapbox provides
+              the driving route, distance and
+              estimated travel time.
+            </p>
+          </div>
+
+          {message && (
+            <div className="mt-5 rounded-2xl border border-white/10 bg-white/5 p-4 text-sm leading-6 text-white/75">
+              {message}
+            </div>
+          )}
+        </div>
+      </aside>
+    </form>
+  );
+}
+
+function LocationInput({
+  label,
+  value,
+  onChange,
+  suggestions,
+  searching,
+  onSelect,
+  markerClass,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  suggestions: SearchSuggestion[];
+  searching: boolean;
+  onSelect: (
+    suggestion: SearchSuggestion
+  ) => void;
+  markerClass: string;
+}) {
+  return (
+    <div className="relative">
+      <label className="mb-2 block text-sm font-semibold text-white/70">
+        {label}
+      </label>
+
+      <div className="relative">
+        <span
+          className={`absolute left-4 top-1/2 h-2.5 w-2.5 -translate-y-1/2 rounded-full ${markerClass}`}
+        />
+
+        <input
+          value={value}
+          onChange={(event) =>
+            onChange(event.target.value)
+          }
+          placeholder={`Search ${label.toLowerCase()}`}
+          autoComplete="off"
+          className="w-full rounded-2xl border border-white/10 bg-black/20 py-3.5 pl-10 pr-11 text-white outline-none placeholder:text-white/30 focus:border-violet-500"
+        />
+
+        <Search className="absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white/35" />
+      </div>
+
+      {(suggestions.length > 0 ||
+        searching) && (
+        <div className="absolute z-30 mt-2 max-h-80 w-full overflow-y-auto rounded-2xl border border-white/10 bg-[#17171d] p-2 shadow-2xl">
+          {suggestions.map(
+            (suggestion) => (
+              <button
+                key={suggestion.id}
+                type="button"
+                onClick={() =>
+                  onSelect(suggestion)
+                }
+                className="flex w-full items-start gap-3 rounded-xl px-3 py-3 text-left transition hover:bg-white/5"
+              >
+                <MapPin className="mt-1 h-4 w-4 shrink-0 text-violet-400" />
+
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-semibold text-white">
+                    {suggestion.name}
+                  </p>
+
+                  <p className="mt-1 line-clamp-2 text-xs leading-5 text-white/45">
+                    {suggestion.address}
+                  </p>
+                </div>
+
+                <span
+                  className={[
+                    "shrink-0 rounded-full px-2 py-1 text-[10px] font-bold",
+                    suggestion.source ===
+                    "CRUUZ"
+                      ? "bg-emerald-500/10 text-emerald-300"
+                      : "bg-violet-500/10 text-violet-300",
+                  ].join(" ")}
+                >
+                  {suggestion.source}
+                </span>
+              </button>
+            )
+          )}
+
+          {searching && (
+            <div className="px-3 py-2 text-xs text-white/40">
+              Searching Ghana...
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ModeButton({
+  active,
+  onClick,
+  icon,
+  title,
+  subtitle,
+}: {
+  active: boolean;
+  onClick: () => void;
+  icon: ReactNode;
+  title: string;
+  subtitle: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={[
+        "rounded-2xl border p-4 text-left transition",
+        active
+          ? "border-violet-500 bg-violet-500/10"
+          : "border-white/10 bg-white/[0.03] hover:bg-white/[0.06]",
+      ].join(" ")}
+    >
+      <div className="flex items-center gap-3">
+        <div
+          className={[
+            "flex h-10 w-10 items-center justify-center rounded-xl",
+            active
+              ? "bg-violet-500 text-white"
+              : "bg-white/10 text-white",
+          ].join(" ")}
+        >
+          {icon}
+        </div>
+
+        <div>
+          <p className="font-bold text-white">
+            {title}
+          </p>
+
+          <p className="mt-0.5 text-xs text-white/45">
+            {subtitle}
+          </p>
+        </div>
+      </div>
+    </button>
+  );
+}
+
+function TextInput({
+  label,
+  value,
+  onChange,
+  placeholder,
+  type = "text",
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+  type?: string;
+}) {
+  return (
+    <label className="block">
+      <span className="mb-2 block text-sm font-semibold text-white/70">
+        {label}
+      </span>
+
+      <input
+        type={type}
+        value={value}
+        onChange={(event) =>
+          onChange(event.target.value)
+        }
+        placeholder={placeholder}
+        className="w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3.5 text-white outline-none placeholder:text-white/30 focus:border-violet-500"
+      />
+    </label>
+  );
+}
+
+function Summary({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="flex items-start justify-between gap-4">
+      <span className="text-sm text-white/45">
+        {label}
+      </span>
+
+      <span className="max-w-[220px] text-right text-sm font-semibold text-white">
+        {value}
+      </span>
+    </div>
+  );
+}
+
+function FarePart({
+  label,
+  value,
+}: {
+  label: string;
+  value: number;
+}) {
+  return (
+    <div className="rounded-xl bg-black/15 px-3 py-2">
+      <p className="text-xs text-white/45">
+        {label}
+      </p>
+
+      <p className="mt-1 font-bold text-white">
+        GH₵{value.toFixed(2)}
+      </p>
+    </div>
+  );
+}
+
+function mapLocalLandmark(
+  landmark: GhanaLandmark
+): SearchSuggestion {
+  return {
+    id: landmark.id,
+    name: landmark.name,
+    address: landmark.address,
+    category: landmark.category,
+    latitude: landmark.latitude,
+    longitude: landmark.longitude,
+    source: "CRUUZ",
+  };
+}
+
+function dedupeSuggestions(
+  items: SearchSuggestion[]
+) {
+  const seen = new Set<string>();
+
+  return items.filter((item) => {
+    const key = `${normalizeKey(
+      item.name
+    )}|${item.latitude.toFixed(
+      4
+    )}|${item.longitude.toFixed(4)}`;
+
+    if (seen.has(key)) return false;
+
+    seen.add(key);
+    return true;
+  });
+}
+
+function normalizeKey(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+}
