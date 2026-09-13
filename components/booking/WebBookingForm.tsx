@@ -8,9 +8,6 @@ import {
   useRef,
   useState,
 } from "react";
-import mapboxgl from "mapbox-gl";
-import "mapbox-gl/dist/mapbox-gl.css";
-
 import {
   Accessibility,
   ArrowRight,
@@ -111,18 +108,6 @@ type GeoapifyFeature = {
   };
 };
 
-type MapboxGeocodingFeature = {
-  id: string;
-  type: "Feature";
-  text?: string;
-  place_name?: string;
-  place_type?: string[];
-  center: [number, number];
-  properties?: {
-    category?: string;
-  };
-};
-
 type SearchSuggestion = {
   id: string;
   name: string;
@@ -130,7 +115,7 @@ type SearchSuggestion = {
   category?: string;
   latitude: number;
   longitude: number;
-  source: "CRUUZ" | "GEOAPIFY" | "MAPBOX";
+  source: "CRUUZ" | "GEOAPIFY";
 };
 
 type SelectedPlace = {
@@ -139,11 +124,11 @@ type SelectedPlace = {
   address: string;
   latitude: number;
   longitude: number;
-  source: "CRUUZ" | "GEOAPIFY" | "MAPBOX" | "GPS";
+  source: "CRUUZ" | "GEOAPIFY" | "GPS";
 };
 
-const MAPBOX_TOKEN =
-  process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN || "";
+const GOOGLE_MAPS_WEB_KEY =
+  process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "";
 
 const GEOAPIFY_KEY =
   process.env.NEXT_PUBLIC_GEOAPIFY_API_KEY || "";
@@ -153,6 +138,54 @@ const CRUUZ_API_URL = (
 ).replace(/\/$/, "");
 
 const ACCRA_CENTER: [number, number] = [-0.187, 5.6037];
+
+type GoogleMapsWindow = Window & {
+  google?: any;
+  __cruuzGoogleMapsPromise?: Promise<void>;
+};
+
+function loadGoogleMaps(): Promise<void> {
+  const browserWindow = window as GoogleMapsWindow;
+
+  if (browserWindow.google?.maps) {
+    return Promise.resolve();
+  }
+
+  if (browserWindow.__cruuzGoogleMapsPromise) {
+    return browserWindow.__cruuzGoogleMapsPromise;
+  }
+
+  browserWindow.__cruuzGoogleMapsPromise = new Promise(
+    (resolve, reject) => {
+      const script = document.createElement("script");
+      script.id = "cruuz-google-maps";
+      script.src =
+        "https://maps.googleapis.com/maps/api/js?" +
+        new URLSearchParams({
+          key: GOOGLE_MAPS_WEB_KEY,
+          v: "weekly",
+        }).toString();
+      script.async = true;
+      script.defer = true;
+      script.onload = () => resolve();
+      script.onerror = () =>
+        reject(new Error("Google Maps failed to load"));
+      document.head.appendChild(script);
+    }
+  );
+
+  return browserWindow.__cruuzGoogleMapsPromise;
+}
+
+const GOOGLE_MAP_DARK_STYLE = [
+  { elementType: "geometry", stylers: [{ color: "#17171d" }] },
+  { elementType: "labels.text.stroke", stylers: [{ color: "#17171d" }] },
+  { elementType: "labels.text.fill", stylers: [{ color: "#a8a8b3" }] },
+  { featureType: "road", elementType: "geometry", stylers: [{ color: "#2b2b35" }] },
+  { featureType: "road", elementType: "labels.text.fill", stylers: [{ color: "#d1d1da" }] },
+  { featureType: "water", elementType: "geometry", stylers: [{ color: "#0f172a" }] },
+  { featureType: "poi", elementType: "labels.text.fill", stylers: [{ color: "#9ca3af" }] },
+];
 
 const PRICING_TYPE_MAP: Record<
   RideType,
@@ -233,11 +266,12 @@ const rideTypes: Array<{
 
 export default function WebBookingForm() {
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
-  const mapRef = useRef<mapboxgl.Map | null>(null);
+  const mapRef = useRef<any>(null);
 
-  const pickupMarkerRef = useRef<mapboxgl.Marker | null>(null);
+  const pickupMarkerRef = useRef<any>(null);
   const destinationMarkerRef =
-    useRef<mapboxgl.Marker | null>(null);
+    useRef<any>(null);
+  const routePolylineRef = useRef<any>(null);
 
   const pickupSearchAbortRef =
     useRef<AbortController | null>(null);
@@ -350,30 +384,51 @@ const [
   }, [pricing, selectedPricingId]);
 
   useEffect(() => {
-    if (!MAPBOX_TOKEN || !mapContainerRef.current) {
+    if (!GOOGLE_MAPS_WEB_KEY || !mapContainerRef.current) {
       return;
     }
 
-    mapboxgl.accessToken = MAPBOX_TOKEN;
+    let active = true;
 
-    const map = new mapboxgl.Map({
-      container: mapContainerRef.current,
-      style: "mapbox://styles/mapbox/dark-v11",
-      center: ACCRA_CENTER,
-      zoom: 11,
-    });
+    void loadGoogleMaps()
+      .then(() => {
+        const browserWindow = window as GoogleMapsWindow;
+        if (
+          !active ||
+          !browserWindow.google?.maps ||
+          !mapContainerRef.current
+        ) {
+          return;
+        }
 
-    map.addControl(
-      new mapboxgl.NavigationControl(),
-      "top-right"
-    );
-
-    mapRef.current = map;
+        mapRef.current = new browserWindow.google.maps.Map(
+          mapContainerRef.current,
+          {
+            center: {
+              lat: ACCRA_CENTER[1],
+              lng: ACCRA_CENTER[0],
+            },
+            zoom: 11,
+            styles: GOOGLE_MAP_DARK_STYLE,
+            mapTypeControl: false,
+            streetViewControl: false,
+            fullscreenControl: true,
+          }
+        );
+      })
+      .catch(() => {
+        if (active) {
+          setMessage(
+            "Google Maps could not load. Please refresh and try again."
+          );
+        }
+      });
 
     return () => {
-      pickupMarkerRef.current?.remove();
-      destinationMarkerRef.current?.remove();
-      map.remove();
+      active = false;
+      pickupMarkerRef.current?.setMap(null);
+      destinationMarkerRef.current?.setMap(null);
+      routePolylineRef.current?.setMap(null);
       mapRef.current = null;
     };
   }, []);
@@ -642,7 +697,6 @@ useEffect(() => {
   ): Promise<SearchSuggestion[]> {
     const results = await Promise.allSettled([
       searchCruuzGooglePlaces(query, signal),
-      searchMapbox(query, signal),
       searchGeoapify(query, signal),
     ]);
 
@@ -693,68 +747,6 @@ useEffect(() => {
       longitude: place.longitude,
       source: "CRUUZ" as const,
     }));
-  }
-
-  async function searchMapbox(
-    query: string,
-    signal: AbortSignal
-  ): Promise<SearchSuggestion[]> {
-    if (!MAPBOX_TOKEN) return [];
-
-    const params = new URLSearchParams({
-      country: "gh",
-      language: "en",
-      autocomplete: "true",
-      types:
-        "address,poi,place,locality,neighborhood,district",
-      limit: "10",
-      access_token: MAPBOX_TOKEN,
-    });
-
-    const response = await fetch(
-      `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(
-        query
-      )}.json?${params.toString()}`,
-      { signal }
-    );
-
-    if (!response.ok) {
-      throw new Error(
-        "Mapbox location search failed"
-      );
-    }
-
-    const data = (await response.json()) as {
-      features?: MapboxGeocodingFeature[];
-    };
-
-    return (data.features || [])
-      .filter(
-        (feature) =>
-          Array.isArray(feature.center) &&
-          feature.center.length >= 2
-      )
-      .map((feature) => {
-        const [longitude, latitude] =
-          feature.center;
-
-        const name =
-          feature.text ||
-          feature.place_name ||
-          query;
-
-        return {
-          id: feature.id,
-          name,
-          address: feature.place_name || name,
-          category:
-            feature.properties?.category ||
-            feature.place_type?.[0],
-          longitude,
-          latitude,
-          source: "MAPBOX" as const,
-        };
-      });
   }
 
   async function searchGeoapify(
@@ -853,39 +845,40 @@ useEffect(() => {
     field: "pickup" | "destination"
   ) {
     const map = mapRef.current;
-    if (!map) return;
+    const browserWindow = window as GoogleMapsWindow;
+    if (!map || !browserWindow.google?.maps) return;
 
-    const marker =
-      field === "pickup"
-        ? new mapboxgl.Marker({
-            color: "#16a34a",
-          })
-        : new mapboxgl.Marker({
-            color: "#7c3aed",
-          });
-
-    marker
-      .setLngLat([
-        place.longitude,
-        place.latitude,
-      ])
-      .addTo(map);
+    const marker = new browserWindow.google.maps.Marker({
+      position: {
+        lat: place.latitude,
+        lng: place.longitude,
+      },
+      map,
+      title: place.name,
+      icon: {
+        path: browserWindow.google.maps.SymbolPath.CIRCLE,
+        fillColor:
+          field === "pickup" ? "#16a34a" : "#7c3aed",
+        fillOpacity: 1,
+        strokeColor: "#ffffff",
+        strokeWeight: 2,
+        scale: 9,
+      },
+    });
 
     if (field === "pickup") {
-      pickupMarkerRef.current?.remove();
+      pickupMarkerRef.current?.setMap(null);
       pickupMarkerRef.current = marker;
     } else {
-      destinationMarkerRef.current?.remove();
+      destinationMarkerRef.current?.setMap(null);
       destinationMarkerRef.current = marker;
     }
 
-    map.flyTo({
-      center: [
-        place.longitude,
-        place.latitude,
-      ],
-      zoom: 14,
+    map.panTo({
+      lat: place.latitude,
+      lng: place.longitude,
     });
+    map.setZoom(14);
   }
 
   async function useCurrentLocation() {
@@ -978,9 +971,21 @@ useEffect(() => {
     from: SelectedPlace,
     to: SelectedPlace
   ) {
-    if (!MAPBOX_TOKEN) {
+    const browserWindow = window as GoogleMapsWindow;
+
+    if (!GOOGLE_MAPS_WEB_KEY) {
       setRouteInfo(null);
       return;
+    }
+
+    if (!browserWindow.google?.maps) {
+      try {
+        await loadGoogleMaps();
+      } catch {
+        setRouteInfo(null);
+        setMessage("Google Maps could not load.");
+        return;
+      }
     }
 
     routeAbortRef.current?.abort();
@@ -993,59 +998,68 @@ useEffect(() => {
     setPricing([]);
 
     try {
-      const coordinates =
-        `${from.longitude},${from.latitude};` +
-        `${to.longitude},${to.latitude}`;
+      const googleMaps = browserWindow.google.maps;
+      const directionsService =
+        new googleMaps.DirectionsService();
 
-      const params = new URLSearchParams({
-        geometries: "geojson",
-        overview: "full",
-        steps: "false",
-        access_token: MAPBOX_TOKEN,
-      });
-
-      const response = await fetch(
-        `https://api.mapbox.com/directions/v5/mapbox/driving/${coordinates}?${params.toString()}`,
-        {
-          signal: controller.signal,
+      const result = await new Promise<any>(
+        (resolve, reject) => {
+          directionsService.route(
+            {
+              origin: {
+                lat: from.latitude,
+                lng: from.longitude,
+              },
+              destination: {
+                lat: to.latitude,
+                lng: to.longitude,
+              },
+              travelMode: googleMaps.TravelMode.DRIVING,
+              provideRouteAlternatives: false,
+            },
+            (routeResult: any, status: string) => {
+              if (
+                status === "OK" &&
+                routeResult?.routes?.[0]
+              ) {
+                resolve(routeResult);
+              } else {
+                reject(
+                  new Error("No Google driving route was found")
+                );
+              }
+            }
+          );
         }
       );
 
-      if (!response.ok) {
-        throw new Error(
-          "Unable to calculate the route"
-        );
-      }
+      if (controller.signal.aborted) return;
 
-      const data = await response.json();
+      const route = result.routes[0];
+      const leg = route.legs?.[0];
 
-      const route = data.routes?.[0];
-
-      if (!route) {
+      if (!leg) {
         throw new Error(
           "No driving route was found"
         );
       }
 
       const distanceKm =
-        Number(route.distance || 0) / 1000;
+        Number(leg.distance?.value || 0) / 1000;
 
       const durationMinutes =
-        Number(route.duration || 0) / 60;
+        Number(leg.duration?.value || 0) / 60;
 
       setRouteInfo({
         distanceKm,
         durationMinutes,
       });
 
-      drawRoute(route.geometry);
+      drawRoute(route.overview_path || []);
 
-      fitRouteBounds(from, to);
+      fitRouteBounds(from, to, route.bounds);
     } catch (error) {
-      if (
-        error instanceof DOMException &&
-        error.name === "AbortError"
-      ) {
+      if (controller.signal.aborted) {
         return;
       }
 
@@ -1137,95 +1151,56 @@ useEffect(() => {
     }
   }
 
-  function drawRoute(geometry: {
-    type: string;
-    coordinates: number[][];
-  }) {
+  function drawRoute(path: any[]) {
     const map = mapRef.current;
-    if (!map) return;
+    const browserWindow = window as GoogleMapsWindow;
+    if (!map || !browserWindow.google?.maps) return;
 
-    const render = () => {
-      const source =
-        map.getSource(
-          "cruuz-route"
-        ) as mapboxgl.GeoJSONSource | undefined;
-
-      const routeData = {
-        type: "Feature",
-        properties: {},
-        geometry,
-      };
-
-      if (source) {
-        source.setData(routeData as any);
-        return;
-      }
-
-      map.addSource("cruuz-route", {
-        type: "geojson",
-        data: routeData as any,
+    routePolylineRef.current?.setMap(null);
+    routePolylineRef.current =
+      new browserWindow.google.maps.Polyline({
+        path,
+        geodesic: true,
+        strokeColor: "#7c3aed",
+        strokeOpacity: 0.95,
+        strokeWeight: 6,
+        map,
       });
-
-      map.addLayer({
-        id: "cruuz-route-line",
-        type: "line",
-        source: "cruuz-route",
-        layout: {
-          "line-cap": "round",
-          "line-join": "round",
-        },
-        paint: {
-          "line-color": "#7c3aed",
-          "line-width": 6,
-          "line-opacity": 0.9,
-        },
-      });
-    };
-
-    if (map.isStyleLoaded()) {
-      render();
-    } else {
-      map.once("load", render);
-    }
   }
 
   function clearRoute() {
-    const map = mapRef.current;
-    if (!map || !map.isStyleLoaded()) return;
-
-    if (map.getLayer("cruuz-route-line")) {
-      map.removeLayer("cruuz-route-line");
-    }
-
-    if (map.getSource("cruuz-route")) {
-      map.removeSource("cruuz-route");
-    }
+    routePolylineRef.current?.setMap(null);
+    routePolylineRef.current = null;
   }
 
   function fitRouteBounds(
     from: SelectedPlace,
-    to: SelectedPlace
+    to: SelectedPlace,
+    routeBounds?: any
   ) {
     const map = mapRef.current;
-    if (!map) return;
+    const browserWindow = window as GoogleMapsWindow;
+    if (!map || !browserWindow.google?.maps) return;
 
-    const bounds = new mapboxgl.LngLatBounds();
+    if (routeBounds) {
+      map.fitBounds(routeBounds, 80);
+      return;
+    }
 
-    bounds.extend([
-      from.longitude,
-      from.latitude,
-    ]);
+    const bounds =
+      new browserWindow.google.maps.LatLngBounds();
 
-    bounds.extend([
-      to.longitude,
-      to.latitude,
-    ]);
-
-    map.fitBounds(bounds, {
-      padding: 80,
-      maxZoom: 14,
-      duration: 900,
+    bounds.extend({
+      lat: from.latitude,
+      lng: from.longitude,
     });
+
+    bounds.extend({
+      lat: to.latitude,
+      lng: to.longitude,
+    });
+
+    map.fitBounds(bounds, 80);
   }
 
   function handleSubmit(
@@ -1374,7 +1349,7 @@ useEffect(() => {
                     normalizeKey(pickup.name)
                 ) {
                   setPickup(null);
-                  pickupMarkerRef.current?.remove();
+                  pickupMarkerRef.current?.setMap(null);
                   pickupMarkerRef.current = null;
                 }
               }}
@@ -1403,7 +1378,7 @@ useEffect(() => {
                     )
                 ) {
                   setDestination(null);
-                  destinationMarkerRef.current?.remove();
+                  destinationMarkerRef.current?.setMap(null);
                   destinationMarkerRef.current =
                     null;
                 }
