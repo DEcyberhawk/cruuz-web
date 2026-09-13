@@ -111,6 +111,18 @@ type GeoapifyFeature = {
   };
 };
 
+type MapboxGeocodingFeature = {
+  id: string;
+  type: "Feature";
+  text?: string;
+  place_name?: string;
+  place_type?: string[];
+  center: [number, number];
+  properties?: {
+    category?: string;
+  };
+};
+
 type SearchSuggestion = {
   id: string;
   name: string;
@@ -118,7 +130,7 @@ type SearchSuggestion = {
   category?: string;
   latitude: number;
   longitude: number;
-  source: "CRUUZ" | "GEOAPIFY";
+  source: "CRUUZ" | "GEOAPIFY" | "MAPBOX";
 };
 
 type SelectedPlace = {
@@ -127,7 +139,7 @@ type SelectedPlace = {
   address: string;
   latitude: number;
   longitude: number;
-  source: "CRUUZ" | "GEOAPIFY" | "GPS";
+  source: "CRUUZ" | "GEOAPIFY" | "MAPBOX" | "GPS";
 };
 
 const MAPBOX_TOKEN =
@@ -554,7 +566,7 @@ useEffect(() => {
 
       try {
         const remoteResults =
-          await searchGeoapify(
+          await searchMapbox(
             trimmed,
             controller.signal
           );
@@ -595,7 +607,7 @@ useEffect(() => {
 
     try {
       const remoteResults =
-        await searchGeoapify(
+        await searchMapbox(
           trimmed,
           controller.signal
         );
@@ -624,77 +636,64 @@ useEffect(() => {
     }
   }
 
-  async function searchGeoapify(
+  async function searchMapbox(
     query: string,
     signal: AbortSignal
   ): Promise<SearchSuggestion[]> {
-    if (!GEOAPIFY_KEY) return [];
+    if (!MAPBOX_TOKEN) return [];
 
     const params = new URLSearchParams({
-      text: query,
-      filter: "countrycode:gh",
-      bias: `proximity:${ACCRA_CENTER[0]},${ACCRA_CENTER[1]}`,
+      country: "gh",
+      language: "en",
+      autocomplete: "true",
+      types:
+        "address,poi,place,locality,neighborhood,district",
       limit: "10",
-      format: "geojson",
-      apiKey: GEOAPIFY_KEY,
+      access_token: MAPBOX_TOKEN,
     });
 
     const response = await fetch(
-      `https://api.geoapify.com/v1/geocode/autocomplete?${params.toString()}`,
+      `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(
+        query
+      )}.json?${params.toString()}`,
       { signal }
     );
 
     if (!response.ok) {
       throw new Error(
-        "Geoapify location search failed"
+        "Mapbox location search failed"
       );
     }
 
     const data = (await response.json()) as {
-      features?: GeoapifyFeature[];
+      features?: MapboxGeocodingFeature[];
     };
 
     return (data.features || [])
       .filter(
         (feature) =>
-          Array.isArray(
-            feature.geometry.coordinates
-          ) &&
-          feature.geometry.coordinates.length >= 2
+          Array.isArray(feature.center) &&
+          feature.center.length >= 2
       )
       .map((feature) => {
         const [longitude, latitude] =
-          feature.geometry.coordinates;
-
-        const properties = feature.properties;
+          feature.center;
 
         const name =
-          properties.name ||
-          properties.address_line1 ||
-          properties.city ||
-          properties.suburb ||
-          properties.formatted ||
+          feature.text ||
+          feature.place_name ||
           query;
 
         return {
-          id:
-            properties.place_id ||
-            `${longitude}-${latitude}-${name}`,
+          id: feature.id,
           name,
-          address:
-            properties.formatted ||
-            [
-              properties.address_line1,
-              properties.address_line2,
-            ]
-              .filter(Boolean)
-              .join(", "),
+          address: feature.place_name || name,
           category:
-            properties.category ||
-            properties.result_type,
+            feature.properties?.category ||
+            feature.place_type?.[0],
           longitude,
           latitude,
-          source: "GEOAPIFY" as const,
+          source: "MAPBOX" as const,
         };
       });
   }
