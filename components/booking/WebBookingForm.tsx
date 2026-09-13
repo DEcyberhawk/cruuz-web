@@ -641,6 +641,7 @@ useEffect(() => {
     signal: AbortSignal
   ): Promise<SearchSuggestion[]> {
     const results = await Promise.allSettled([
+      searchCruuzGooglePlaces(query, signal),
       searchMapbox(query, signal),
       searchGeoapify(query, signal),
     ]);
@@ -650,6 +651,48 @@ useEffect(() => {
         result.status === "fulfilled" ? result.value : []
       )
     );
+  }
+
+  async function searchCruuzGooglePlaces(
+    query: string,
+    signal: AbortSignal
+  ): Promise<SearchSuggestion[]> {
+    if (!CRUUZ_API_URL) return [];
+
+    const params = new URLSearchParams({ q: query });
+    const response = await fetch(
+      `${CRUUZ_API_URL}/maps/public/search-places?${params.toString()}`,
+      { signal }
+    );
+
+    if (!response.ok) {
+      throw new Error("CRUUZ Google Places search failed");
+    }
+
+    const data = (await response.json()) as {
+      success?: boolean;
+      places?: Array<{
+        id: string;
+        title: string;
+        subtitle: string;
+        latitude: number;
+        longitude: number;
+      }>;
+    };
+
+    if (!data.success || !Array.isArray(data.places)) {
+      return [];
+    }
+
+    return data.places.map((place) => ({
+      id: `google-${place.id}`,
+      name: place.title,
+      address: place.subtitle,
+      category: "place",
+      latitude: place.latitude,
+      longitude: place.longitude,
+      source: "CRUUZ" as const,
+    }));
   }
 
   async function searchMapbox(
