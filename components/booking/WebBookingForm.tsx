@@ -566,7 +566,7 @@ useEffect(() => {
 
       try {
         const remoteResults =
-          await searchMapbox(
+          await searchGhanaLocations(
             trimmed,
             controller.signal
           );
@@ -607,7 +607,7 @@ useEffect(() => {
 
     try {
       const remoteResults =
-        await searchMapbox(
+        await searchGhanaLocations(
           trimmed,
           controller.signal
         );
@@ -634,6 +634,22 @@ useEffect(() => {
         setDestinationSearching(false);
       }
     }
+  }
+
+  async function searchGhanaLocations(
+    query: string,
+    signal: AbortSignal
+  ): Promise<SearchSuggestion[]> {
+    const results = await Promise.allSettled([
+      searchMapbox(query, signal),
+      searchGeoapify(query, signal),
+    ]);
+
+    return dedupeSuggestions(
+      results.flatMap((result) =>
+        result.status === "fulfilled" ? result.value : []
+      )
+    );
   }
 
   async function searchMapbox(
@@ -694,6 +710,70 @@ useEffect(() => {
           longitude,
           latitude,
           source: "MAPBOX" as const,
+        };
+      });
+  }
+
+  async function searchGeoapify(
+    query: string,
+    signal: AbortSignal
+  ): Promise<SearchSuggestion[]> {
+    if (!GEOAPIFY_KEY) return [];
+
+    const params = new URLSearchParams({
+      text: `${query}, Ghana`,
+      filter: "countrycode:gh",
+      limit: "10",
+      format: "geojson",
+      apiKey: GEOAPIFY_KEY,
+    });
+
+    const response = await fetch(
+      `https://api.geoapify.com/v1/geocode/autocomplete?${params.toString()}`,
+      { signal }
+    );
+
+    if (!response.ok) {
+      throw new Error("Geoapify location search failed");
+    }
+
+    const data = (await response.json()) as {
+      features?: GeoapifyFeature[];
+    };
+
+    return (data.features || [])
+      .filter(
+        (feature) =>
+          Array.isArray(feature.geometry.coordinates) &&
+          feature.geometry.coordinates.length >= 2
+      )
+      .map((feature) => {
+        const [longitude, latitude] =
+          feature.geometry.coordinates;
+        const properties = feature.properties;
+        const name =
+          properties.name ||
+          properties.address_line1 ||
+          properties.city ||
+          properties.suburb ||
+          properties.formatted ||
+          query;
+
+        return {
+          id:
+            properties.place_id ||
+            `geoapify-${longitude}-${latitude}-${name}`,
+          name,
+          address:
+            properties.formatted ||
+            [properties.address_line1, properties.address_line2]
+              .filter(Boolean)
+              .join(", "),
+          category:
+            properties.category || properties.result_type,
+          longitude,
+          latitude,
+          source: "GEOAPIFY" as const,
         };
       });
   }
