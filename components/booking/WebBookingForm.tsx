@@ -36,6 +36,23 @@ import {
 
 type BookingMode = "NOW" | "SCHEDULED";
 
+type PaymentMethod =
+  | "CASH"
+  | "WALLET"
+  | "CARD"
+  | "MTN_MOMO"
+  | "TELECEL_CASH"
+  | "AIRTELTIGO_MONEY";
+
+type CreatedTrip = {
+  id: string;
+  status: string;
+  tripVerificationCode?: string;
+  estimatedFare?: number;
+  finalFare?: number;
+  currency?: string;
+};
+
 type RideType =
   | "CRUUZ_GO"
   | "COMFORT"
@@ -136,6 +153,33 @@ const GEOAPIFY_KEY =
 const CRUUZ_API_URL = (
   process.env.NEXT_PUBLIC_CRUUZ_API_URL || ""
 ).replace(/\/$/, "");
+
+const PAYSTACK_LIVE_ENABLED =
+  process.env.NEXT_PUBLIC_PAYSTACK_LIVE_ENABLED === "true";
+
+const WEB_AUTH_TOKEN_KEY = "cruuz_web_access_token";
+const WEB_VERIFIED_PHONE_KEY = "cruuz_web_verified_phone";
+const WEB_PENDING_PAYMENT_KEY = "cruuz_web_pending_payment";
+
+const PAYMENT_METHODS: Array<{
+  id: PaymentMethod;
+  title: string;
+  subtitle: string;
+}> = [
+  { id: "CASH", title: "Cash", subtitle: "Pay the driver directly" },
+  { id: "WALLET", title: "CRUUZ Wallet", subtitle: "Use your CRUUZ balance" },
+  { id: "CARD", title: "Card", subtitle: "Visa, Mastercard and more" },
+  { id: "MTN_MOMO", title: "MTN MoMo", subtitle: "Pay with MTN Mobile Money" },
+  { id: "TELECEL_CASH", title: "Telecel Cash", subtitle: "Pay with Telecel Cash" },
+  { id: "AIRTELTIGO_MONEY", title: "AirtelTigo Money", subtitle: "Pay with AirtelTigo Money" },
+];
+
+const PREPAID_PAYMENT_METHODS: PaymentMethod[] = [
+  "CARD",
+  "MTN_MOMO",
+  "TELECEL_CASH",
+  "AIRTELTIGO_MONEY",
+];
 
 const ACCRA_CENTER: [number, number] = [-0.187, 5.6037];
 
@@ -354,6 +398,18 @@ const [
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
+  const [otpCode, setOtpCode] = useState("");
+  const [otpSent, setOtpSent] = useState(false);
+  const [verifiedPhone, setVerifiedPhone] = useState("");
+  const [accessToken, setAccessToken] = useState("");
+  const [authBusy, setAuthBusy] = useState(false);
+  const [bookingBusy, setBookingBusy] = useState(false);
+  const [paymentMethod, setPaymentMethod] =
+    useState<PaymentMethod>("CASH");
+  const [pendingPaymentReference, setPendingPaymentReference] =
+    useState("");
+  const [createdTrip, setCreatedTrip] =
+    useState<CreatedTrip | null>(null);
 
   const [deliveryRecipient, setDeliveryRecipient] =
     useState("");
@@ -371,6 +427,18 @@ const [
 
   const selectedPricingId =
     PRICING_TYPE_MAP[rideType];
+
+  useEffect(() => {
+    const savedToken = window.localStorage.getItem(WEB_AUTH_TOKEN_KEY) || "";
+    const savedPhone =
+      window.localStorage.getItem(WEB_VERIFIED_PHONE_KEY) || "";
+    const savedPayment =
+      window.localStorage.getItem(WEB_PENDING_PAYMENT_KEY) || "";
+
+    setAccessToken(savedToken);
+    setVerifiedPhone(savedPhone);
+    setPendingPaymentReference(savedPayment);
+  }, []);
 
   const selectedFare = useMemo(() => {
     if (!selectedPricingId) return null;
@@ -1203,7 +1271,242 @@ useEffect(() => {
     map.fitBounds(bounds, 80);
   }
 
-  function handleSubmit(
+  async function apiRequest<T>(
+    path: string,
+    options: RequestInit = {},
+    token?: string
+  ): Promise<T> {
+    if (!CRUUZ_API_URL) {
+      throw new Error("The CRUUZ API URL is not configured.");
+    }
+
+    const response = await fetch(`${CRUUZ_API_URL}${path}`, {
+      ...options,
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(options.headers || {}),
+      },
+    });
+
+    const result = await response.json().catch(() => ({}));
+
+    if (!response.ok || result?.success === false) {
+      if (response.status === 401) {
+        window.localStorage.removeItem(WEB_AUTH_TOKEN_KEY);
+        window.localStorage.removeItem(WEB_VERIFIED_PHONE_KEY);
+        setAccessToken("");
+        setVerifiedPhone("");
+      }
+
+      throw new Error(
+        result?.message || "CRUUZ could not complete this request."
+      );
+    }
+
+    return result as T;
+  }
+
+  function isPhoneVerified() {
+    return Boolean(
+      accessToken &&
+        verifiedPhone &&
+        verifiedPhone.trim() === phone.trim()
+    );
+  }
+
+  async function sendBookingOtp() {
+    const cleanPhone = phone.trim();
+
+    if (!/^\+?[0-9\s\-()]{10,18}$/.test(cleanPhone)) {
+      setMessage(
+        "Enter a valid phone number before requesting the verification code."
+      );
+      return;
+    }
+
+    setAuthBusy(true);
+    setMessage(null);
+
+    try {
+      const result = await apiRequest<{ message?: string }>("/auth/send-otp", {
+        method: "POST",
+        body: JSON.stringify({ phone: cleanPhone }),
+      });
+
+      setOtpSent(true);
+      setOtpCode("");
+      setMessage(
+        result.message ||
+          "A six-digit verification code was sent to your phone."
+      );
+    } catch (error: any) {
+      setMessage(error.message || "Could not send the verification code.");
+    } finally {
+      setAuthBusy(false);
+    }
+  }
+
+  async function verifyBookingOtp() {
+    if (!/^\d{6}$/.test(otpCode.trim())) {
+      setMessage("Enter the six-digit verification code.");
+      return;
+    }
+
+    setAuthBusy(true);
+    setMessage(null);
+
+    try {
+      const result = await apiRequest<{
+        accessToken?: string;
+        token?: string;
+        mfaRequired?: boolean;
+        mfaEnrollmentRequired?: boolean;
+      }>("/auth/verify-otp", {
+        method: "POST",
+        body: JSON.stringify({
+          phone: phone.trim(),
+          otp: otpCode.trim(),
+        }),
+      });
+
+      if (result.mfaRequired || result.mfaEnrollmentRequired) {
+        throw new Error(
+          "This account requires additional security verification in the CRUUZ app."
+        );
+      }
+
+      const token = result.accessToken || result.token || "";
+      if (!token) {
+        throw new Error("CRUUZ did not return a login token.");
+      }
+
+      setAccessToken(token);
+      setVerifiedPhone(phone.trim());
+      window.localStorage.setItem(WEB_AUTH_TOKEN_KEY, token);
+      window.localStorage.setItem(
+        WEB_VERIFIED_PHONE_KEY,
+        phone.trim()
+      );
+      setMessage("Phone verified. You can now request your CRUUZ.");
+    } catch (error: any) {
+      setMessage(error.message || "Could not verify this code.");
+    } finally {
+      setAuthBusy(false);
+    }
+  }
+
+  async function createTrip(paymentReference?: string) {
+    if (!pickup || !destination || !routeInfo || !selectedPricingId) {
+      throw new Error("Complete the route and ride selection first.");
+    }
+
+    const result = await apiRequest<{ trip: CreatedTrip }>(
+      "/trips/request",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          pickupAddress: pickup.address || pickup.name,
+          pickupLat: pickup.latitude,
+          pickupLng: pickup.longitude,
+          dropoffAddress: destination.address || destination.name,
+          dropoffLat: destination.latitude,
+          dropoffLng: destination.longitude,
+          rideTypeId: selectedPricingId,
+          paymentMethod,
+          paymentReference: paymentReference || undefined,
+          distanceKm: routeInfo.distanceKm,
+          durationMinutes: routeInfo.durationMinutes,
+        }),
+      },
+      accessToken
+    );
+
+    if (!result.trip?.id) {
+      throw new Error("CRUUZ returned no trip confirmation.");
+    }
+
+    setCreatedTrip(result.trip);
+    setPendingPaymentReference("");
+    window.localStorage.removeItem(WEB_PENDING_PAYMENT_KEY);
+    setMessage(
+      "Your CRUUZ has been requested. Keep your Pickup PIN private until the driver arrives."
+    );
+  }
+
+  async function initializePaystackPayment() {
+    if (!selectedFare) {
+      throw new Error("A valid fare is required before payment.");
+    }
+
+    const paymentAmount = automaticBenefit?.valid
+      ? automaticBenefit.finalFare
+      : selectedFare.totalFare;
+
+    const result = await apiRequest<{
+      authorizationUrl?: string;
+      checkoutUrl?: string;
+      reference: string;
+    }>(
+      "/payment-gateway/initialize",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          provider: "PAYSTACK",
+          amount: Number(paymentAmount.toFixed(2)),
+          currency: "GHS",
+          purpose: "TRIP_PAYMENT",
+          email: email.trim() || undefined,
+          metadata: {
+            source: "WEB_BOOKING",
+            paymentMethod,
+            tripPayment: true,
+          },
+        }),
+      },
+      accessToken
+    );
+
+    const checkoutUrl = result.authorizationUrl || result.checkoutUrl;
+    if (!checkoutUrl || !result.reference) {
+      throw new Error("Paystack did not return a checkout link.");
+    }
+
+    setPendingPaymentReference(result.reference);
+    window.localStorage.setItem(
+      WEB_PENDING_PAYMENT_KEY,
+      result.reference
+    );
+    window.open(checkoutUrl, "_blank", "noopener,noreferrer");
+    setMessage(
+      "Paystack opened in a new tab. Complete the test payment, return here, then select Verify payment & request ride."
+    );
+  }
+
+  async function verifyPendingPaymentAndCreateTrip() {
+    if (!pendingPaymentReference) {
+      throw new Error("There is no pending payment to verify.");
+    }
+
+    const result = await apiRequest<{
+      transaction?: { status?: string };
+    }>(
+      "/payment-gateway/verify",
+      {
+        method: "POST",
+        body: JSON.stringify({ reference: pendingPaymentReference }),
+      },
+      accessToken
+    );
+
+    if (result.transaction?.status !== "SUCCESS") {
+      throw new Error("Paystack has not confirmed this payment yet.");
+    }
+
+    await createTrip(pendingPaymentReference);
+  }
+
+  async function handleSubmit(
     event: FormEvent<HTMLFormElement>
   ) {
     event.preventDefault();
@@ -1226,6 +1529,13 @@ useEffect(() => {
       return;
     }
 
+    if (bookingMode === "SCHEDULED") {
+      setMessage(
+        "Scheduled web booking is not active yet. Select Ride now to request a driver."
+      );
+      return;
+    }
+
     if (!fullName.trim() || !phone.trim()) {
       setMessage(
         "Enter your name and phone number."
@@ -1243,11 +1553,35 @@ useEffect(() => {
       return;
     }
 
-    setMessage(
-      rideType === "BUSINESS"
-        ? "Business booking details are ready. Corporate account booking will be connected to the CRUUZ business backend next."
-        : `Booking preview ready. Your current CRUUZ estimated fare is ${selectedFare?.formattedFare}. No payment has been taken yet.`
-    );
+    if (rideType === "BUSINESS") {
+      setMessage(
+        "Business booking will be completed through the CRUUZ Business Dashboard."
+      );
+      return;
+    }
+
+    if (!isPhoneVerified()) {
+      await sendBookingOtp();
+      return;
+    }
+
+    setBookingBusy(true);
+
+    try {
+      if (PREPAID_PAYMENT_METHODS.includes(paymentMethod)) {
+        if (pendingPaymentReference) {
+          await verifyPendingPaymentAndCreateTrip();
+        } else {
+          await initializePaystackPayment();
+        }
+      } else {
+        await createTrip();
+      }
+    } catch (error: any) {
+      setMessage(error.message || "CRUUZ could not request this ride.");
+    } finally {
+      setBookingBusy(false);
+    }
   }
 
   return (
@@ -1794,6 +2128,120 @@ useEffect(() => {
               />
             </div>
           </div>
+
+          {otpSent && !isPhoneVerified() && (
+            <div className="mt-5 rounded-2xl border border-violet-500/20 bg-violet-500/10 p-4">
+              <p className="font-semibold text-white">
+                Verify your phone
+              </p>
+
+              <p className="mt-1 text-xs leading-5 text-white/55">
+                Enter the six-digit code sent to {phone.trim()}.
+              </p>
+
+              <div className="mt-3 flex flex-col gap-3 sm:flex-row">
+                <input
+                  value={otpCode}
+                  onChange={(event) =>
+                    setOtpCode(
+                      event.target.value
+                        .replace(/\D/g, "")
+                        .slice(0, 6)
+                    )
+                  }
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  placeholder="6-digit code"
+                  className="min-w-0 flex-1 rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-white outline-none placeholder:text-white/30 focus:border-violet-500"
+                />
+
+                <button
+                  type="button"
+                  onClick={() => void verifyBookingOtp()}
+                  disabled={authBusy || otpCode.length !== 6}
+                  className="rounded-xl bg-violet-600 px-5 py-3 font-bold text-white disabled:opacity-50"
+                >
+                  {authBusy ? "Verifying..." : "Verify phone"}
+                </button>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => void sendBookingOtp()}
+                disabled={authBusy}
+                className="mt-3 text-xs font-semibold text-violet-300 disabled:opacity-50"
+              >
+                Send a new code
+              </button>
+            </div>
+          )}
+
+          {isPhoneVerified() && (
+            <div className="mt-5 flex items-center gap-2 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm font-semibold text-emerald-300">
+              <Check className="h-4 w-4" />
+              Phone verified
+            </div>
+          )}
+        </section>
+
+        <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-5 shadow-2xl backdrop-blur sm:p-7">
+          <p className="text-sm font-semibold uppercase tracking-[0.18em] text-violet-400">
+            Payment
+          </p>
+
+          <h2 className="mt-2 text-2xl font-bold text-white">
+            How would you like to pay?
+          </h2>
+
+          <div className="mt-5 grid gap-3 sm:grid-cols-2">
+            {PAYMENT_METHODS.map((method) => {
+              const prepaid =
+                PREPAID_PAYMENT_METHODS.includes(method.id);
+              const active = paymentMethod === method.id;
+
+              return (
+                <button
+                  key={method.id}
+                  type="button"
+                  onClick={() => {
+                    setPaymentMethod(method.id);
+                    setPendingPaymentReference("");
+                    window.localStorage.removeItem(
+                      WEB_PENDING_PAYMENT_KEY
+                    );
+                  }}
+                  className={[
+                    "rounded-2xl border p-4 text-left transition",
+                    active
+                      ? "border-violet-500 bg-violet-500/10"
+                      : "border-white/10 bg-white/[0.03] hover:bg-white/[0.06]",
+                  ].join(" ")}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-bold text-white">
+                        {method.title}
+                      </p>
+
+                      <p className="mt-1 text-xs leading-5 text-white/50">
+                        {method.subtitle}
+                      </p>
+                    </div>
+
+                    {active && (
+                      <Check className="h-5 w-5 shrink-0 text-violet-400" />
+                    )}
+                  </div>
+
+                  {prepaid && !PAYSTACK_LIVE_ENABLED && (
+                    <span className="mt-3 inline-flex rounded-full bg-amber-500/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-amber-300">
+                      Paystack test mode
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
         </section>
       </div>
 
@@ -1920,6 +2368,9 @@ useEffect(() => {
           <button
             type="submit"
             disabled={
+              bookingBusy ||
+              authBusy ||
+              Boolean(createdTrip) ||
               rideType !== "BUSINESS" &&
               (!selectedFare ||
                 pricingLoading ||
@@ -1927,7 +2378,19 @@ useEffect(() => {
             }
             className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-violet-600 px-5 py-4 font-bold text-white transition hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            Continue booking
+            {bookingBusy
+              ? "Please wait..."
+              : createdTrip
+                ? "Ride requested"
+                : !isPhoneVerified()
+                  ? "Verify phone to continue"
+                  : PREPAID_PAYMENT_METHODS.includes(
+                        paymentMethod
+                      )
+                    ? pendingPaymentReference
+                      ? "Verify payment & request ride"
+                      : `Continue to Paystack${PAYSTACK_LIVE_ENABLED ? "" : " test"}`
+                    : "Request CRUUZ"}
             <ArrowRight className="h-5 w-5" />
           </button>
 
@@ -1941,17 +2404,44 @@ useEffect(() => {
 
             <p className="flex gap-2">
               <CreditCard className="mt-0.5 h-4 w-4 shrink-0 text-violet-400" />
-              No payment is taken on this booking
-              preview yet.
+              Cash is paid to the driver. Electronic
+              payments are securely processed by
+              Paystack.
             </p>
 
             <p>
-              Ghana location search uses CRUUZ
-              Places and Geoapify. Mapbox provides
-              the driving route, distance and
-              estimated travel time.
+              Ghana place search uses CRUUZ Places.
+              Google Maps provides the map, driving
+              route, distance and estimated travel
+              time.
             </p>
           </div>
+
+          {createdTrip && (
+            <div className="mt-5 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-5 text-center">
+              <p className="text-xs font-bold uppercase tracking-[0.18em] text-emerald-300">
+                Booking confirmed
+              </p>
+
+              <p className="mt-2 break-all text-sm text-white/60">
+                Trip {createdTrip.id}
+              </p>
+
+              <p className="mt-5 text-xs font-semibold uppercase tracking-[0.18em] text-white/50">
+                Pickup PIN
+              </p>
+
+              <p className="mt-2 text-4xl font-black tracking-[0.3em] text-white">
+                {createdTrip.tripVerificationCode || "----"}
+              </p>
+
+              <p className="mt-3 text-xs leading-5 text-white/55">
+                Give this four-digit PIN only to your
+                assigned driver when the vehicle
+                arrives.
+              </p>
+            </div>
+          )}
 
           {message && (
             <div className="mt-5 rounded-2xl border border-white/10 bg-white/5 p-4 text-sm leading-6 text-white/75">
