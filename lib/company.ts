@@ -1,7 +1,7 @@
 export const company = {
   name: "CRUUZ",
   legalName: "CRUUZ Logistics Ltd",
-  slogan: "Move Smarter.",
+  slogan: "A better way to get there.",
   origin: "Proudly Ghanaian",
   vision: "Built for Africa. Ready for the World.",
   email: "info@cruuz.org",

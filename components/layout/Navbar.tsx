@@ -44,8 +44,8 @@ export default function Navbar() {
               CRUUZ
             </p>
 
-            <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-white/35">
-              Move Smarter
+            <p className="whitespace-nowrap text-[9px] font-bold uppercase tracking-[0.08em] text-white/35">
+              A better way to get there.
             </p>
           </div>
         </Link>

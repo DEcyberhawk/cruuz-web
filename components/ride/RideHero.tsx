@@ -47,9 +47,8 @@ export default function RideHero() {
           </h1>
 
           <p className="mt-6 max-w-2xl text-base leading-7 text-white/70 md:text-lg md:leading-8">
-            Choose your pickup and destination, compare CRUUZ ride
-            options and get a live estimated fare before continuing
-            your booking.
+            Choose your pickup and destination, compare CRUUZ ride options and
+            get a live estimated fare before continuing your booking.
           </p>
 
           <div className="mt-7 flex flex-wrap gap-3">
@@ -105,8 +104,9 @@ export default function RideHero() {
             <p className="text-xs font-black uppercase tracking-[0.18em] text-violet-300">
               CRUUZ
             </p>
+
             <p className="mt-1 font-extrabold text-white">
-              Move Smarter.
+              A better way to get there.
             </p>
           </div>
         </div>

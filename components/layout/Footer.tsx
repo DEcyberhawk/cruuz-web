@@ -38,12 +38,12 @@ export default function Footer() {
             </div>
 
             <div className="mt-1 text-[10px] font-black uppercase tracking-[0.32em] text-slate-500">
-              Move Smarter
+              A better way to get there.
             </div>
 
             <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-2">
               <span className="font-extrabold text-white">
-                Move Smarter.
+                A better way to get there.
               </span>
 
               <span className="text-sm font-semibold text-slate-300">
