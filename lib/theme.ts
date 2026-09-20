@@ -1,7 +1,7 @@
 export const brand = {
   name: "CRUUZ",
 
-  tagline: "Move Smarter.",
+   tagline: "A better way to get there.",
 
   slogan: "Built for Africa. Ready for the World.",
 
