@@ -69,14 +69,14 @@ export default function Hero() {
             CRUUZ Mobility
           </motion.p>
 
-          <motion.h1
+                  <motion.h1
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, delay: 0.08 }}
-            className="text-6xl font-black leading-[0.95] tracking-tight md:text-8xl"
+            className="whitespace-nowrap text-3xl font-black leading-tight tracking-tight sm:text-4xl lg:text-5xl"
           >
             A better way{" "}
-            <span className="block bg-gradient-to-r from-violet-200 via-fuchsia-300 to-pink-300 bg-clip-text text-transparent">
+            <span className="bg-gradient-to-r from-violet-200 via-fuchsia-300 to-pink-300 bg-clip-text text-transparent">
               to get there.
             </span>
           </motion.h1>
