@@ -66,7 +66,7 @@ export default function Hero() {
             transition={{ duration: 0.6 }}
             className="mb-4 text-sm font-black uppercase tracking-[0.35em] text-violet-200"
           >
-            The future of urban mobility
+            CRUUZ Mobility
           </motion.p>
 
           <motion.h1
@@ -75,9 +75,9 @@ export default function Hero() {
             transition={{ duration: 0.7, delay: 0.08 }}
             className="text-6xl font-black leading-[0.95] tracking-tight md:text-8xl"
           >
-            Move{" "}
+            A better way{" "}
             <span className="block bg-gradient-to-r from-violet-200 via-fuchsia-300 to-pink-300 bg-clip-text text-transparent">
-              Smarter.
+              to get there.
             </span>
           </motion.h1>
 
