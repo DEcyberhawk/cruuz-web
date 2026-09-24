@@ -35,6 +35,12 @@ import {
   GhanaLandmark,
   searchGhanaLandmarks,
 } from "@/lib/ghana-landmarks";
+import {
+  clearPendingWebPaidBooking,
+  savePendingWebPaidBooking,
+  WEB_AUTH_TOKEN_KEY,
+  WEB_PENDING_PAYMENT_KEY,
+} from "@/lib/web-paid-booking";
 
 type BookingMode = "NOW" | "SCHEDULED";
 
@@ -169,9 +175,7 @@ const CRUUZ_API_URL = (
 const PAYSTACK_LIVE_ENABLED =
   process.env.NEXT_PUBLIC_PAYSTACK_LIVE_ENABLED === "true";
 
-const WEB_AUTH_TOKEN_KEY = "cruuz_web_access_token";
 const WEB_VERIFIED_PHONE_KEY = "cruuz_web_verified_phone";
-const WEB_PENDING_PAYMENT_KEY = "cruuz_web_pending_payment";
 
 const PAYMENT_METHODS: Array<{
   id: PaymentMethod;
@@ -1664,7 +1668,7 @@ useEffect(() => {
 
     setCreatedTrip(result.trip);
     setPendingPaymentReference("");
-    window.localStorage.removeItem(WEB_PENDING_PAYMENT_KEY);
+    clearPendingWebPaidBooking();
     setMessage(
       "Your CRUUZ has been requested. Keep your Pickup PIN private until the driver arrives."
     );
@@ -1709,14 +1713,29 @@ useEffect(() => {
     }
 
     setPendingPaymentReference(result.reference);
-    window.localStorage.setItem(
-      WEB_PENDING_PAYMENT_KEY,
-      result.reference
-    );
-    window.open(checkoutUrl, "_blank", "noopener,noreferrer");
-    setMessage(
-      "Paystack opened in a new tab. Complete the test payment, return here, then select Verify payment & request ride."
-    );
+    savePendingWebPaidBooking({
+      reference: result.reference,
+      createdAt: new Date().toISOString(),
+      tripRequest: {
+        pickupAddress: pickup!.address || pickup!.name,
+        pickupLat: pickup!.latitude,
+        pickupLng: pickup!.longitude,
+        dropoffAddress: destination!.address || destination!.name,
+        dropoffLat: destination!.latitude,
+        dropoffLng: destination!.longitude,
+        stops: stops.map((stop) => ({
+          stopAddress: stop.place!.address || stop.place!.name,
+          stopLat: stop.place!.latitude,
+          stopLng: stop.place!.longitude,
+        })),
+        rideTypeId: selectedPricingId!,
+        paymentMethod,
+        distanceKm: routeInfo!.distanceKm,
+        durationMinutes: routeInfo!.durationMinutes,
+      },
+    });
+
+    window.location.assign(checkoutUrl);
   }
 
   async function verifyPendingPaymentAndCreateTrip() {
