@@ -22,10 +22,12 @@ import {
   Navigation,
   Package,
   Plane,
+  Plus,
   Route,
   Search,
   ShieldCheck,
   Timer,
+  Trash2,
   Users,
 } from "lucide-react";
 
@@ -143,6 +145,16 @@ type SelectedPlace = {
   longitude: number;
   source: "CRUUZ" | "GEOAPIFY" | "GPS";
 };
+
+type StopDraft = {
+  id: string;
+  text: string;
+  place: SelectedPlace | null;
+  suggestions: SearchSuggestion[];
+  searching: boolean;
+};
+
+const MAX_INTERMEDIATE_STOPS = 3;
 
 const GOOGLE_MAPS_WEB_KEY =
   process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "";
@@ -315,12 +327,18 @@ export default function WebBookingForm() {
   const pickupMarkerRef = useRef<any>(null);
   const destinationMarkerRef =
     useRef<any>(null);
+  const stopMarkerRefs = useRef<Map<string, any>>(new Map());
   const routePolylineRef = useRef<any>(null);
 
   const pickupSearchAbortRef =
     useRef<AbortController | null>(null);
   const destinationSearchAbortRef =
     useRef<AbortController | null>(null);
+  const stopSearchAbortRefs =
+    useRef<Map<string, AbortController>>(new Map());
+  const stopSearchTimeoutRefs =
+    useRef<Map<string, number>>(new Map());
+  const nextStopIdRef = useRef(1);
   const pricingAbortRef =
   useRef<AbortController | null>(null);
 
@@ -345,6 +363,8 @@ const routeAbortRef =
 
   const [destination, setDestination] =
     useState<SelectedPlace | null>(null);
+
+  const [stops, setStops] = useState<StopDraft[]>([]);
 
   const [pickupSuggestions, setPickupSuggestions] =
     useState<SearchSuggestion[]>([]);
@@ -496,6 +516,12 @@ const [
       active = false;
       pickupMarkerRef.current?.setMap(null);
       destinationMarkerRef.current?.setMap(null);
+      stopMarkerRefs.current.forEach((marker) => marker.setMap(null));
+      stopMarkerRefs.current.clear();
+      stopSearchAbortRefs.current.forEach((controller) => controller.abort());
+      stopSearchTimeoutRefs.current.forEach((timeout) =>
+        window.clearTimeout(timeout)
+      );
       routePolylineRef.current?.setMap(null);
       mapRef.current = null;
     };
@@ -557,8 +583,24 @@ const [
     };
   }, [destinationText, destination]);
 
+  const routeStopsKey = stops
+    .map((stop) =>
+      stop.place
+        ? `${stop.place.latitude},${stop.place.longitude}`
+        : "pending"
+    )
+    .join("|");
+
   useEffect(() => {
-    if (!pickup || !destination) {
+    const selectedStops = stops
+      .map((stop) => stop.place)
+      .filter((place): place is SelectedPlace => Boolean(place));
+
+    if (
+      !pickup ||
+      !destination ||
+      selectedStops.length !== stops.length
+    ) {
       routeAbortRef.current?.abort();
       clearRoute();
       setRouteInfo(null);
@@ -567,8 +609,8 @@ const [
       return;
     }
 
-    void calculateRoute(pickup, destination);
-  }, [pickup, destination]);
+    void calculateRoute(pickup, destination, selectedStops);
+  }, [pickup, destination, routeStopsKey]);
 
   useEffect(() => {
     if (!routeInfo) {
@@ -908,6 +950,178 @@ useEffect(() => {
     placeMarker(place, "destination");
   }
 
+  function addStop() {
+    if (stops.length >= MAX_INTERMEDIATE_STOPS) return;
+
+    const id = `stop-${nextStopIdRef.current++}`;
+    setStops((current) => [
+      ...current,
+      {
+        id,
+        text: "",
+        place: null,
+        suggestions: [],
+        searching: false,
+      },
+    ]);
+  }
+
+  function removeStop(id: string) {
+    stopSearchAbortRefs.current.get(id)?.abort();
+    stopSearchAbortRefs.current.delete(id);
+
+    const timeout = stopSearchTimeoutRefs.current.get(id);
+    if (timeout) window.clearTimeout(timeout);
+    stopSearchTimeoutRefs.current.delete(id);
+
+    stopMarkerRefs.current.get(id)?.setMap(null);
+    stopMarkerRefs.current.delete(id);
+    setStops((current) => current.filter((stop) => stop.id !== id));
+  }
+
+  function updateStopText(id: string, value: string) {
+    setStops((current) =>
+      current.map((stop) => {
+        if (stop.id !== id) return stop;
+
+        const selectionChanged =
+          stop.place && normalizeKey(value) !== normalizeKey(stop.place.name);
+
+        if (selectionChanged) {
+          stopMarkerRefs.current.get(id)?.setMap(null);
+          stopMarkerRefs.current.delete(id);
+        }
+
+        return {
+          ...stop,
+          text: value,
+          place: selectionChanged ? null : stop.place,
+        };
+      })
+    );
+
+    const previousTimeout = stopSearchTimeoutRefs.current.get(id);
+    if (previousTimeout) window.clearTimeout(previousTimeout);
+
+    if (value.trim().length < 2) {
+      stopSearchAbortRefs.current.get(id)?.abort();
+      setStops((current) =>
+        current.map((stop) =>
+          stop.id === id
+            ? { ...stop, suggestions: [], searching: false }
+            : stop
+        )
+      );
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      void searchStopLocation(id, value);
+    }, 300);
+    stopSearchTimeoutRefs.current.set(id, timeout);
+  }
+
+  async function searchStopLocation(id: string, query: string) {
+    stopSearchAbortRefs.current.get(id)?.abort();
+    const controller = new AbortController();
+    stopSearchAbortRefs.current.set(id, controller);
+
+    const localResults = searchGhanaLandmarks(query.trim(), 6).map(
+      mapLocalLandmark
+    );
+
+    setStops((current) =>
+      current.map((stop) =>
+        stop.id === id
+          ? { ...stop, suggestions: localResults, searching: true }
+          : stop
+      )
+    );
+
+    try {
+      const remoteResults = await searchGhanaLocations(
+        query.trim(),
+        controller.signal
+      );
+      if (controller.signal.aborted) return;
+
+      setStops((current) =>
+        current.map((stop) =>
+          stop.id === id
+            ? {
+                ...stop,
+                suggestions: dedupeSuggestions([
+                  ...localResults,
+                  ...remoteResults,
+                ]),
+              }
+            : stop
+        )
+      );
+    } catch (error) {
+      if (!(error instanceof DOMException && error.name === "AbortError")) {
+        setStops((current) =>
+          current.map((stop) =>
+            stop.id === id
+              ? { ...stop, suggestions: localResults }
+              : stop
+          )
+        );
+      }
+    } finally {
+      if (!controller.signal.aborted) {
+        setStops((current) =>
+          current.map((stop) =>
+            stop.id === id ? { ...stop, searching: false } : stop
+          )
+        );
+      }
+    }
+  }
+
+  function chooseStopSuggestion(id: string, suggestion: SearchSuggestion) {
+    const place: SelectedPlace = {
+      id: suggestion.id,
+      name: suggestion.name,
+      address: suggestion.address,
+      latitude: suggestion.latitude,
+      longitude: suggestion.longitude,
+      source: suggestion.source,
+    };
+
+    setStops((current) =>
+      current.map((stop) =>
+        stop.id === id
+          ? { ...stop, text: place.name, place, suggestions: [] }
+          : stop
+      )
+    );
+    placeStopMarker(id, place);
+  }
+
+  function placeStopMarker(id: string, place: SelectedPlace) {
+    const map = mapRef.current;
+    const browserWindow = window as GoogleMapsWindow;
+    if (!map || !browserWindow.google?.maps) return;
+
+    const marker = new browserWindow.google.maps.Marker({
+      position: { lat: place.latitude, lng: place.longitude },
+      map,
+      title: place.name,
+      icon: {
+        path: browserWindow.google.maps.SymbolPath.CIRCLE,
+        fillColor: "#f59e0b",
+        fillOpacity: 1,
+        strokeColor: "#ffffff",
+        strokeWeight: 2,
+        scale: 8,
+      },
+    });
+
+    stopMarkerRefs.current.get(id)?.setMap(null);
+    stopMarkerRefs.current.set(id, marker);
+  }
+
   function placeMarker(
     place: SelectedPlace,
     field: "pickup" | "destination"
@@ -1037,7 +1251,8 @@ useEffect(() => {
 
   async function calculateRoute(
     from: SelectedPlace,
-    to: SelectedPlace
+    to: SelectedPlace,
+    intermediateStops: SelectedPlace[]
   ) {
     const browserWindow = window as GoogleMapsWindow;
 
@@ -1082,6 +1297,14 @@ useEffect(() => {
                 lat: to.latitude,
                 lng: to.longitude,
               },
+              waypoints: intermediateStops.map((stop) => ({
+                location: {
+                  lat: stop.latitude,
+                  lng: stop.longitude,
+                },
+                stopover: true,
+              })),
+              optimizeWaypoints: false,
               travelMode: googleMaps.TravelMode.DRIVING,
               provideRouteAlternatives: false,
             },
@@ -1104,19 +1327,27 @@ useEffect(() => {
       if (controller.signal.aborted) return;
 
       const route = result.routes[0];
-      const leg = route.legs?.[0];
+      const legs = route.legs || [];
 
-      if (!leg) {
+      if (legs.length === 0) {
         throw new Error(
           "No driving route was found"
         );
       }
 
       const distanceKm =
-        Number(leg.distance?.value || 0) / 1000;
+        legs.reduce(
+          (total: number, leg: any) =>
+            total + Number(leg.distance?.value || 0),
+          0
+        ) / 1000;
 
       const durationMinutes =
-        Number(leg.duration?.value || 0) / 60;
+        legs.reduce(
+          (total: number, leg: any) =>
+            total + Number(leg.duration?.value || 0),
+          0
+        ) / 60;
 
       setRouteInfo({
         distanceKm,
@@ -1412,6 +1643,11 @@ useEffect(() => {
           dropoffAddress: destination.address || destination.name,
           dropoffLat: destination.latitude,
           dropoffLng: destination.longitude,
+          stops: stops.map((stop) => ({
+            stopAddress: stop.place?.address || stop.place?.name,
+            stopLat: stop.place?.latitude,
+            stopLng: stop.place?.longitude,
+          })),
           rideTypeId: selectedPricingId,
           paymentMethod,
           paymentReference: paymentReference || undefined,
@@ -1516,6 +1752,11 @@ useEffect(() => {
       setMessage(
         "Select a valid pickup and destination."
       );
+      return;
+    }
+
+    if (stops.some((stop) => !stop.place)) {
+      setMessage("Select a valid location for every added stop.");
       return;
     }
 
@@ -1697,6 +1938,47 @@ useEffect(() => {
               }
               markerClass="bg-emerald-500"
             />
+
+            {stops.map((stop, index) => (
+              <div key={stop.id} className="flex items-end gap-2">
+                <div className="min-w-0 flex-1">
+                  <LocationInput
+                    label={`Stop ${index + 1}`}
+                    value={stop.text}
+                    onChange={(value) => updateStopText(stop.id, value)}
+                    suggestions={stop.suggestions}
+                    searching={stop.searching}
+                    onSelect={(suggestion) =>
+                      chooseStopSuggestion(stop.id, suggestion)
+                    }
+                    markerClass="bg-amber-500"
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => removeStop(stop.id)}
+                  aria-label={`Remove stop ${index + 1}`}
+                  className="mb-0.5 inline-flex h-[50px] w-[50px] shrink-0 items-center justify-center rounded-2xl border border-red-400/20 bg-red-500/10 text-red-200 transition hover:bg-red-500/20"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
+            ))}
+
+            {stops.length < MAX_INTERMEDIATE_STOPS && (
+              <button
+                type="button"
+                onClick={addStop}
+                className="inline-flex items-center gap-2 text-sm font-bold text-violet-300 transition hover:text-violet-200"
+              >
+                <Plus className="h-4 w-4" />
+                Add stop
+                <span className="font-medium text-white/35">
+                  ({stops.length}/{MAX_INTERMEDIATE_STOPS})
+                </span>
+              </button>
+            )}
 
             <LocationInput
               label="Destination"
@@ -2263,6 +2545,14 @@ useEffect(() => {
                 "Choose pickup"
               }
             />
+
+            {stops.map((stop, index) => (
+              <Summary
+                key={stop.id}
+                label={`Stop ${index + 1}`}
+                value={stop.place?.name || "Choose stop"}
+              />
+            ))}
 
             <Summary
               label="Destination"
