@@ -3,7 +3,12 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { CheckCircle2, LoaderCircle, RotateCcw, TriangleAlert } from "lucide-react";
+import {
+  CheckCircle2,
+  LoaderCircle,
+  RotateCcw,
+  TriangleAlert,
+} from "lucide-react";
 
 import {
   clearPendingWebPaidBooking,
@@ -11,23 +16,34 @@ import {
   getPendingWebPaidBooking,
   recordCompletedWebPayment,
   WEB_AUTH_TOKEN_KEY,
+  WEB_VERIFIED_PHONE_KEY,
 } from "@/lib/web-paid-booking";
 
-const CRUUZ_API_URL = (
-  process.env.NEXT_PUBLIC_CRUUZ_API_URL || ""
-).replace(/\/$/, "");
+const CRUUZ_API_URL = (process.env.NEXT_PUBLIC_CRUUZ_API_URL || "").replace(
+  /\/$/,
+  "",
+);
 
-type CallbackState = "VERIFYING" | "CREATING" | "SUCCESS" | "FAILED";
+type CallbackState =
+  | "VERIFYING"
+  | "CREATING"
+  | "AUTH_REQUIRED"
+  | "SUCCESS"
+  | "FAILED";
 
 type CreatedTrip = {
   id: string;
   tripVerificationCode?: string;
 };
 
+class AuthenticationRequiredError extends Error {}
+
 export default function PaymentCallbackClient() {
   const searchParams = useSearchParams();
   const reference = (
-    searchParams.get("reference") || searchParams.get("trxref") || ""
+    searchParams.get("reference") ||
+    searchParams.get("trxref") ||
+    ""
   ).trim();
 
   const processingRef = useRef(false);
@@ -35,12 +51,24 @@ export default function PaymentCallbackClient() {
   const [state, setState] = useState<CallbackState>("VERIFYING");
   const [message, setMessage] = useState("Confirming your Paystack payment…");
   const [trip, setTrip] = useState<CreatedTrip | null>(null);
+  const [phone, setPhone] = useState("");
+  const [otpCode, setOtpCode] = useState("");
+  const [otpSent, setOtpSent] = useState(false);
+  const [authBusy, setAuthBusy] = useState(false);
+
+  useEffect(() => {
+    setPhone(window.localStorage.getItem(WEB_VERIFIED_PHONE_KEY) || "");
+  }, []);
 
   useEffect(() => {
     if (processingRef.current) return;
     processingRef.current = true;
 
-    async function apiRequest<T>(path: string, options: RequestInit, token: string) {
+    async function apiRequest<T>(
+      path: string,
+      options: RequestInit,
+      token: string,
+    ) {
       if (!CRUUZ_API_URL) {
         throw new Error("The CRUUZ API URL is not configured.");
       }
@@ -55,8 +83,22 @@ export default function PaymentCallbackClient() {
       });
 
       const result = await response.json().catch(() => ({}));
+
+      if (
+        response.status === 401 ||
+        /access token expired|unauthorized|invalid token/i.test(
+          String(result?.message || ""),
+        )
+      ) {
+        throw new AuthenticationRequiredError(
+          "Your CRUUZ session expired after payment. Verify your phone to finish this paid booking.",
+        );
+      }
+
       if (!response.ok || result?.success === false) {
-        throw new Error(result?.message || "CRUUZ could not complete this request.");
+        throw new Error(
+          result?.message || "CRUUZ could not complete this request.",
+        );
       }
 
       return result as T;
@@ -72,28 +114,32 @@ export default function PaymentCallbackClient() {
         if (completed) {
           setTrip({ id: completed.tripId });
           setState("SUCCESS");
-          setMessage("This payment has already been completed and your ride was requested.");
+          setMessage(
+            "This payment has already been completed and your ride was requested.",
+          );
           return;
         }
 
         const pending = getPendingWebPaidBooking();
         if (!pending) {
           throw new Error(
-            "Your payment may be complete, but the saved booking could not be recovered. Do not pay again. Contact CRUUZ support with this reference."
+            "Your payment may be complete, but the saved booking could not be recovered. Do not pay again. Contact CRUUZ support with this reference.",
           );
         }
 
         if (pending.reference !== reference) {
           throw new Error(
-            "This Paystack reference does not match the saved booking. Do not pay again."
+            "This Paystack reference does not match the saved booking. Do not pay again.",
           );
         }
 
         const token = window.localStorage.getItem(WEB_AUTH_TOKEN_KEY) || "";
         if (!token) {
-          throw new Error(
-            "Your CRUUZ session expired after payment. Do not pay again. Sign in with the same phone number and contact support with this reference."
+          setState("AUTH_REQUIRED");
+          setMessage(
+            "Your CRUUZ session expired after payment. Verify your phone to finish this paid booking.",
           );
+          return;
         }
 
         setState("VERIFYING");
@@ -107,7 +153,7 @@ export default function PaymentCallbackClient() {
             method: "POST",
             body: JSON.stringify({ reference }),
           },
-          token
+          token,
         );
 
         if (verification.transaction?.status !== "SUCCESS") {
@@ -126,11 +172,13 @@ export default function PaymentCallbackClient() {
               paymentReference: reference,
             }),
           },
-          token
+          token,
         );
 
         if (!created.trip?.id) {
-          throw new Error("Payment succeeded, but CRUUZ returned no trip confirmation.");
+          throw new Error(
+            "Payment succeeded, but CRUUZ returned no trip confirmation.",
+          );
         }
 
         recordCompletedWebPayment({
@@ -143,8 +191,17 @@ export default function PaymentCallbackClient() {
         setState("SUCCESS");
         setMessage("Payment verified and your CRUUZ has been requested.");
       } catch (error: any) {
+        if (error instanceof AuthenticationRequiredError) {
+          window.localStorage.removeItem(WEB_AUTH_TOKEN_KEY);
+          setState("AUTH_REQUIRED");
+          setMessage(error.message);
+          return;
+        }
+
         setState("FAILED");
-        setMessage(error?.message || "CRUUZ could not complete this paid booking.");
+        setMessage(
+          error?.message || "CRUUZ could not complete this paid booking.",
+        );
       }
     }
 
@@ -152,6 +209,96 @@ export default function PaymentCallbackClient() {
   }, [attempt, reference]);
 
   const busy = state === "VERIFYING" || state === "CREATING";
+
+  async function publicApiRequest<T>(path: string, options: RequestInit) {
+    if (!CRUUZ_API_URL) {
+      throw new Error("The CRUUZ API URL is not configured.");
+    }
+
+    const response = await fetch(`${CRUUZ_API_URL}${path}`, {
+      ...options,
+      headers: {
+        "Content-Type": "application/json",
+        ...(options.headers || {}),
+      },
+    });
+
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok || result?.success === false) {
+      throw new Error(
+        result?.message || "CRUUZ could not complete this request.",
+      );
+    }
+
+    return result as T;
+  }
+
+  async function sendOtp() {
+    if (!phone.trim()) {
+      setMessage("Enter the same phone number used for this paid booking.");
+      return;
+    }
+
+    setAuthBusy(true);
+    try {
+      await publicApiRequest("/auth/send-otp", {
+        method: "POST",
+        body: JSON.stringify({ phone: phone.trim() }),
+      });
+      setOtpSent(true);
+      setMessage("Enter the six-digit verification code sent to your phone.");
+    } catch (error: any) {
+      setMessage(
+        error?.message || "CRUUZ could not send the verification code.",
+      );
+    } finally {
+      setAuthBusy(false);
+    }
+  }
+
+  async function verifyOtpAndResume() {
+    if (!/^\d{6}$/.test(otpCode.trim())) {
+      setMessage("Enter the six-digit verification code.");
+      return;
+    }
+
+    setAuthBusy(true);
+    try {
+      const result = await publicApiRequest<{
+        accessToken?: string;
+        token?: string;
+        mfaRequired?: boolean;
+        mfaEnrollmentRequired?: boolean;
+      }>("/auth/verify-otp", {
+        method: "POST",
+        body: JSON.stringify({ phone: phone.trim(), otp: otpCode.trim() }),
+      });
+
+      if (result.mfaRequired || result.mfaEnrollmentRequired) {
+        throw new Error(
+          "Additional account verification is required. Do not pay again; contact CRUUZ support with this payment reference.",
+        );
+      }
+
+      const token = result.accessToken || result.token || "";
+      if (!token) {
+        throw new Error("CRUUZ did not return a refreshed session.");
+      }
+
+      window.localStorage.setItem(WEB_AUTH_TOKEN_KEY, token);
+      window.localStorage.setItem(WEB_VERIFIED_PHONE_KEY, phone.trim());
+      setOtpCode("");
+      setOtpSent(false);
+      setState("VERIFYING");
+      setMessage("Phone verified. Resuming your paid booking…");
+      processingRef.current = false;
+      setAttempt((value) => value + 1);
+    } catch (error: any) {
+      setMessage(error?.message || "CRUUZ could not verify this code.");
+    } finally {
+      setAuthBusy(false);
+    }
+  }
 
   return (
     <main className="mx-auto flex min-h-[70vh] max-w-2xl items-center px-6 py-28">
@@ -175,12 +322,75 @@ export default function PaymentCallbackClient() {
             ? "Verifying payment"
             : state === "CREATING"
               ? "Requesting your ride"
-              : state === "SUCCESS"
-                ? "Ride requested"
-                : "Booking needs attention"}
+              : state === "AUTH_REQUIRED"
+                ? "Verify your phone"
+                : state === "SUCCESS"
+                  ? "Ride requested"
+                  : "Booking needs attention"}
         </h1>
 
-        <p className="mx-auto mt-4 max-w-lg leading-7 text-white/65">{message}</p>
+        <p className="mx-auto mt-4 max-w-lg leading-7 text-white/65">
+          {message}
+        </p>
+
+        {state === "AUTH_REQUIRED" && (
+          <div className="mx-auto mt-6 max-w-md rounded-2xl border border-violet-400/20 bg-violet-500/10 p-4 text-left">
+            <label className="text-xs font-bold uppercase tracking-wide text-violet-200/70">
+              Phone number
+            </label>
+            <input
+              value={phone}
+              onChange={(event) => setPhone(event.target.value)}
+              placeholder="+233..."
+              autoComplete="tel"
+              className="mt-2 w-full rounded-xl border border-white/10 bg-black/25 px-4 py-3 text-white outline-none placeholder:text-white/30 focus:border-violet-400"
+            />
+
+            {otpSent && (
+              <>
+                <label className="mt-4 block text-xs font-bold uppercase tracking-wide text-violet-200/70">
+                  Verification code
+                </label>
+                <input
+                  value={otpCode}
+                  onChange={(event) =>
+                    setOtpCode(
+                      event.target.value.replace(/\D/g, "").slice(0, 6),
+                    )
+                  }
+                  placeholder="6-digit code"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  className="mt-2 w-full rounded-xl border border-white/10 bg-black/25 px-4 py-3 text-white outline-none placeholder:text-white/30 focus:border-violet-400"
+                />
+              </>
+            )}
+
+            <button
+              type="button"
+              disabled={authBusy || (otpSent && otpCode.length !== 6)}
+              onClick={() => void (otpSent ? verifyOtpAndResume() : sendOtp())}
+              className="mt-4 w-full rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-500 px-5 py-3 font-black text-white disabled:opacity-50"
+            >
+              {authBusy
+                ? "Please wait..."
+                : otpSent
+                  ? "Verify and finish booking"
+                  : "Send verification code"}
+            </button>
+
+            {otpSent && (
+              <button
+                type="button"
+                disabled={authBusy}
+                onClick={() => void sendOtp()}
+                className="mt-3 w-full text-center text-xs font-semibold text-violet-200 disabled:opacity-50"
+              >
+                Send a new code
+              </button>
+            )}
+          </div>
+        )}
 
         {reference && (
           <div className="mt-6 rounded-2xl bg-black/20 p-4 text-left">

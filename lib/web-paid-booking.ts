@@ -1,4 +1,5 @@
 export const WEB_AUTH_TOKEN_KEY = "cruuz_web_access_token";
+export const WEB_VERIFIED_PHONE_KEY = "cruuz_web_verified_phone";
 export const WEB_PENDING_PAYMENT_KEY = "cruuz_web_pending_payment";
 export const WEB_PENDING_BOOKING_KEY = "cruuz_web_pending_paid_booking";
 export const WEB_COMPLETED_PAYMENT_KEY = "cruuz_web_completed_payments";
@@ -70,7 +71,7 @@ export function clearPendingWebPaidBooking() {
 }
 
 export function getCompletedWebPayment(
-  reference: string
+  reference: string,
 ): CompletedWebPayment | null {
   try {
     const raw = window.localStorage.getItem(WEB_COMPLETED_PAYMENT_KEY);
