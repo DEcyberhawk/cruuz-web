@@ -17,6 +17,8 @@ type FormState = {
   city: string;
   addressLine1: string;
   addressLine2: string;
+  password: string;
+  confirmPassword: string;
 };
 
 type RegistrationResponse = {
@@ -54,6 +56,8 @@ const initialForm: FormState = {
   city: "",
   addressLine1: "",
   addressLine2: "",
+  password: "",
+  confirmPassword: "",
 };
 
 const API_URL =
@@ -92,6 +96,28 @@ export default function BusinessRegisterPage() {
       return;
     }
 
+    if (form.password.length < 12) {
+      setError("Password must contain at least 12 characters.");
+      return;
+    }
+
+    if (
+      !/[A-Z]/.test(form.password) ||
+      !/[a-z]/.test(form.password) ||
+      !/[0-9]/.test(form.password) ||
+      !/[^A-Za-z0-9]/.test(form.password)
+    ) {
+      setError(
+        "Password must include uppercase, lowercase, number and special characters."
+      );
+      return;
+    }
+
+    if (form.password !== form.confirmPassword) {
+      setError("Password and confirmation do not match.");
+      return;
+    }
+
     setSubmitting(true);
 
     try {
@@ -111,6 +137,7 @@ export default function BusinessRegisterPage() {
             industry: form.industry.trim() || undefined,
             website: form.website.trim() || undefined,
             primaryEmail: form.primaryEmail.trim(),
+            password: form.password,
             primaryPhone: form.primaryPhone.trim() || undefined,
             country: form.country.trim() || "GH",
             city: form.city.trim() || undefined,
@@ -376,6 +403,32 @@ export default function BusinessRegisterPage() {
                   updateField("primaryPhone", event.target.value)
                 }
                 placeholder="+233..."
+                className={inputClass}
+              />
+            </Field>
+
+            <Field label="Account password" required>
+              <input
+                type="password"
+                autoComplete="new-password"
+                value={form.password}
+                onChange={(event) =>
+                  updateField("password", event.target.value)
+                }
+                placeholder="At least 12 characters"
+                className={inputClass}
+              />
+            </Field>
+
+            <Field label="Confirm password" required>
+              <input
+                type="password"
+                autoComplete="new-password"
+                value={form.confirmPassword}
+                onChange={(event) =>
+                  updateField("confirmPassword", event.target.value)
+                }
+                placeholder="Repeat your password"
                 className={inputClass}
               />
             </Field>

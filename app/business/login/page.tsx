@@ -365,12 +365,12 @@ export default function BusinessLoginPage() {
                     Remember me
                   </label>
 
-                  <button
-                    type="button"
+                  <Link
+                    href="/business/reset-password"
                     className="text-sm font-bold text-violet-300 transition hover:text-white"
                   >
                     Forgot password?
-                  </button>
+                  </Link>
                 </div>
 
                 {error && (
