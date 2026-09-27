@@ -117,7 +117,7 @@ function BusinessPasswordResetContent() {
             </button>
           </form>
 
-          <Link href="/business/login" className="mt-6 inline-flex text-sm font-bold text-violet-300 hover:text-white">ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â Ãƒâ€šÃ‚Â Back to Business Login</Link>
+          <Link href="/business/login" className="mt-6 inline-flex text-sm font-bold text-violet-300 hover:text-white">Back to Business Login</Link>
         </div>
       </section>
     </main>
