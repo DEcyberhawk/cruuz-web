@@ -18,6 +18,7 @@ import { useState } from "react";
 
 import Navbar from "@/components/layout/Navbar";
 import { BusinessDepartmentForm } from "@/components/business/management/forms/BusinessDepartmentForm";
+import { BusinessCostCentreForm } from "@/components/business/management/forms/BusinessCostCentreForm";
 import {
   clearBusinessSession,
 } from "@/lib/business/api";
@@ -88,6 +89,9 @@ export function BusinessDashboardWorkspace() {
     useState<BusinessSection>("overview");
 
   const [departmentDialogOpen, setDepartmentDialogOpen] =
+    useState(false);
+
+  const [costCentreDialogOpen, setCostCentreDialogOpen] =
     useState(false);
 
   function signOut() {
@@ -352,6 +356,7 @@ export function BusinessDashboardWorkspace() {
               )}
               canManage={canManage}
               actionLabel="Add cost centre"
+              onAction={() => setCostCentreDialogOpen(true)}
             />
           )}
         </section>
@@ -360,6 +365,13 @@ export function BusinessDashboardWorkspace() {
       <BusinessDepartmentForm
         open={departmentDialogOpen}
         onClose={() => setDepartmentDialogOpen(false)}
+        onCreated={workspace.reload}
+      />
+
+      <BusinessCostCentreForm
+        open={costCentreDialogOpen}
+        departments={workspace.departments}
+        onClose={() => setCostCentreDialogOpen(false)}
         onCreated={workspace.reload}
       />
     </PortalFrame>
