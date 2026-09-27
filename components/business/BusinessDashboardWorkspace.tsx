@@ -19,6 +19,7 @@ import { useState } from "react";
 import Navbar from "@/components/layout/Navbar";
 import { BusinessDepartmentForm } from "@/components/business/management/forms/BusinessDepartmentForm";
 import { BusinessCostCentreForm } from "@/components/business/management/forms/BusinessCostCentreForm";
+import { BusinessInvitationForm } from "@/components/business/management/forms/BusinessInvitationForm";
 import {
   clearBusinessSession,
 } from "@/lib/business/api";
@@ -92,6 +93,9 @@ export function BusinessDashboardWorkspace() {
     useState(false);
 
   const [costCentreDialogOpen, setCostCentreDialogOpen] =
+    useState(false);
+
+  const [invitationDialogOpen, setInvitationDialogOpen] =
     useState(false);
 
   function signOut() {
@@ -310,6 +314,7 @@ export function BusinessDashboardWorkspace() {
               members={workspace.members}
               invitations={workspace.invitations}
               canManage={canManage}
+              onInvite={() => setInvitationDialogOpen(true)}
             />
           )}
 
@@ -372,6 +377,18 @@ export function BusinessDashboardWorkspace() {
         open={costCentreDialogOpen}
         departments={workspace.departments}
         onClose={() => setCostCentreDialogOpen(false)}
+        onCreated={workspace.reload}
+      />
+
+      <BusinessInvitationForm
+        open={invitationDialogOpen}
+        departments={workspace.departments}
+        costCentres={workspace.costCentres}
+        allowAdminRole={
+          String(membership.role || "").toUpperCase() ===
+          "OWNER"
+        }
+        onClose={() => setInvitationDialogOpen(false)}
         onCreated={workspace.reload}
       />
     </PortalFrame>
@@ -461,6 +478,7 @@ function MembersPanel({
   members,
   invitations,
   canManage,
+  onInvite,
 }: {
   members: Array<{
     id: string;
@@ -476,6 +494,7 @@ function MembersPanel({
     status: string;
   }>;
   canManage: boolean;
+  onInvite: () => void;
 }) {
   return (
     <div className="space-y-7">
@@ -494,6 +513,7 @@ function MembersPanel({
         }))}
         canManage={canManage}
         actionLabel="Invite employee"
+        onAction={onInvite}
       />
 
       <CollectionPanel
