@@ -37,7 +37,7 @@ function BusinessPasswordResetContent() {
     if (!API_URL) return setError("CRUUZ authentication is not configured.");
     setSubmitting(true);
     try {
-      const response = await fetch(`${API_URL}/auth/password-reset/request`, {
+      const response = await fetch(`${API_URL}/auth/forgot-password`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: email.trim().toLowerCase() }),
@@ -60,7 +60,7 @@ function BusinessPasswordResetContent() {
     if (password !== confirmPassword) return setError("Passwords do not match.");
     setSubmitting(true);
     try {
-      const response = await fetch(`${API_URL}/auth/password-reset/complete`, {
+      const response = await fetch(`${API_URL}/auth/reset-password`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ token, newPassword: password, confirmPassword }),
@@ -117,7 +117,7 @@ function BusinessPasswordResetContent() {
             </button>
           </form>
 
-          <Link href="/business/login" className="mt-6 inline-flex text-sm font-bold text-violet-300 hover:text-white">â† Back to Business Login</Link>
+          <Link href="/business/login" className="mt-6 inline-flex text-sm font-bold text-violet-300 hover:text-white">ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â Ãƒâ€šÃ‚Â Back to Business Login</Link>
         </div>
       </section>
     </main>
