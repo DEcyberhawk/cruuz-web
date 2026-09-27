@@ -131,7 +131,12 @@ export type BusinessSection =
 
 export type InvitationInput = {
   email: string;
-  role: string;
+  role:
+    | "ADMIN"
+    | "BOOKER"
+    | "FINANCE"
+    | "MANAGER"
+    | "RIDER";
   departmentId?: string;
   defaultCostCentreId?: string;
   employeeReference?: string;
@@ -140,6 +145,12 @@ export type InvitationInput = {
   canViewBilling: boolean;
   canManageMembers: boolean;
   canManagePolicies: boolean;
+  expiresInDays?: number;
+};
+
+export type BusinessInvitationCreationResult = {
+  invitation: BusinessInvitation;
+  token?: string;
 };
 
 export type DepartmentInput = {

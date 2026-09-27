@@ -4,6 +4,7 @@ import type {
   BusinessCostCentre,
   BusinessDepartment,
   BusinessInvitation,
+  BusinessInvitationCreationResult,
   BusinessMember,
   CostCentreInput,
   DepartmentInput,
@@ -322,7 +323,7 @@ export async function getBusinessInvitations() {
 export async function createBusinessInvitation(
   input: InvitationInput
 ) {
-  return businessRequest<BusinessInvitation>(
+  return businessRequest<BusinessInvitationCreationResult>(
     "/business-accounts/member-invitations",
     {
       method: "POST",
