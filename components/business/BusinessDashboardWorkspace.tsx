@@ -17,6 +17,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import Navbar from "@/components/layout/Navbar";
+import { BusinessDepartmentForm } from "@/components/business/management/forms/BusinessDepartmentForm";
 import {
   clearBusinessSession,
 } from "@/lib/business/api";
@@ -85,6 +86,9 @@ export function BusinessDashboardWorkspace() {
 
   const [section, setSection] =
     useState<BusinessSection>("overview");
+
+  const [departmentDialogOpen, setDepartmentDialogOpen] =
+    useState(false);
 
   function signOut() {
     clearBusinessSession();
@@ -323,6 +327,7 @@ export function BusinessDashboardWorkspace() {
               )}
               canManage={canManage}
               actionLabel="Add department"
+              onAction={() => setDepartmentDialogOpen(true)}
             />
           )}
 
@@ -351,6 +356,12 @@ export function BusinessDashboardWorkspace() {
           )}
         </section>
       </div>
+
+      <BusinessDepartmentForm
+        open={departmentDialogOpen}
+        onClose={() => setDepartmentDialogOpen(false)}
+        onCreated={workspace.reload}
+      />
     </PortalFrame>
   );
 }
@@ -498,6 +509,7 @@ function CollectionPanel({
   items,
   canManage,
   actionLabel,
+  onAction,
 }: {
   eyebrow: string;
   title: string;
@@ -511,6 +523,7 @@ function CollectionPanel({
   }>;
   canManage: boolean;
   actionLabel?: string;
+  onAction?: () => void;
 }) {
   return (
     <div>
@@ -532,7 +545,8 @@ function CollectionPanel({
         {canManage && actionLabel && (
           <button
             type="button"
-            className="self-start rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-500 px-5 py-3 text-sm font-extrabold shadow-[0_12px_30px_rgba(139,92,246,0.2)]"
+            onClick={onAction}
+            className="self-start rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-500 px-5 py-3 text-sm font-extrabold shadow-[0_12px_30px_rgba(139,92,246,0.2)] transition hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-violet-400/50"
           >
             {actionLabel}
           </button>
