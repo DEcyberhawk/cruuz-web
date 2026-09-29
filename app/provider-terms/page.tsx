@@ -255,7 +255,7 @@ const sections = [
     body: (
       <p>
         CRUUZ may receive and review customer feedback, ratings, complaints,
-        safety reports, and other information concerning a provider's services.
+        safety reports, and other information concerning a provider&apos;s services.
         Providers may be contacted where additional information is required.
       </p>
     ),
