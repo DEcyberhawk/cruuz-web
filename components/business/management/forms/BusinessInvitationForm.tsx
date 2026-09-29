@@ -2,7 +2,6 @@
 
 import {
   FormEvent,
-  useEffect,
   useState,
 } from "react";
 import { Loader2 } from "lucide-react";
@@ -80,22 +79,21 @@ export function BusinessInvitationForm({
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => {
-    if (!open) {
-      setEmail("");
-      setRole("RIDER");
-      setDepartmentId("");
-      setDefaultCostCentreId("");
-      setEmployeeReference("");
-      setJobTitle("");
-      setExpiresInDays("7");
-      setCanBookForOthers(false);
-      setCanViewBilling(false);
-      setCanManageMembers(false);
-      setCanManagePolicies(false);
-      setError(null);
-    }
-  }, [open]);
+  function handleClose() {
+    setEmail("");
+    setRole("RIDER");
+    setDepartmentId("");
+    setDefaultCostCentreId("");
+    setEmployeeReference("");
+    setJobTitle("");
+    setExpiresInDays("7");
+    setCanBookForOthers(false);
+    setCanViewBilling(false);
+    setCanManageMembers(false);
+    setCanManagePolicies(false);
+    setError(null);
+    onClose();
+  }
 
   async function handleSubmit(
     event: FormEvent<HTMLFormElement>
@@ -150,7 +148,7 @@ export function BusinessInvitationForm({
       });
 
       await onCreated();
-      onClose();
+      handleClose();
     } catch (failure) {
       setError(getBusinessErrorMessage(failure));
     } finally {
@@ -179,7 +177,7 @@ export function BusinessInvitationForm({
       title="Invite employee"
       description="Invite an employee and configure their company travel access."
       busy={submitting}
-      onClose={onClose}
+      onClose={handleClose}
     >
       <form
         onSubmit={handleSubmit}
@@ -375,7 +373,7 @@ export function BusinessInvitationForm({
           </legend>
 
           <p className="mt-1 text-xs leading-5 text-slate-500">
-            Grant only the access required for this employee's responsibilities.
+            Grant only the access required for this employee&apos;s responsibilities.
           </p>
 
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -421,7 +419,7 @@ export function BusinessInvitationForm({
         <div className="flex flex-col-reverse gap-3 border-t border-white/10 pt-5 sm:flex-row sm:justify-end">
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleClose}
             disabled={submitting}
             className="min-h-12 rounded-xl border border-white/10 px-5 font-bold text-slate-300 transition hover:bg-white/[0.06] hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
           >

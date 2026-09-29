@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useState } from "react";
 import { Loader2 } from "lucide-react";
 import {
   createBusinessDepartment,
@@ -24,13 +24,12 @@ export function BusinessDepartmentForm({
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => {
-    if (!open) {
-      setName("");
-      setCode("");
-      setError(null);
-    }
-  }, [open]);
+  function handleClose() {
+    setName("");
+    setCode("");
+    setError(null);
+    onClose();
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -56,7 +55,7 @@ export function BusinessDepartmentForm({
 
       setName("");
       setCode("");
-      onClose();
+      handleClose();
     } catch (failure) {
       setError(
         getBusinessErrorMessage(failure)
@@ -72,7 +71,7 @@ export function BusinessDepartmentForm({
       title="Add department"
       description="Create a department for organising employees, travel access, and company reporting."
       busy={submitting}
-      onClose={onClose}
+      onClose={handleClose}
     >
       <form onSubmit={handleSubmit} className="space-y-5">
         <label className="block">
@@ -125,7 +124,7 @@ export function BusinessDepartmentForm({
         <div className="flex flex-col-reverse gap-3 border-t border-white/10 pt-5 sm:flex-row sm:justify-end">
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleClose}
             disabled={submitting}
             className="min-h-12 rounded-xl border border-white/10 px-5 font-bold text-slate-300 transition hover:bg-white/[0.06] hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
           >

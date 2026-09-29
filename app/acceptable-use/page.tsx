@@ -112,7 +112,7 @@ const sections = [
           <li>Use CRUUZ services while unlawfully impaired.</li>
           <li>Carry passengers or goods in unsafe conditions.</li>
           <li>Interfere with safety equipment or required vehicle systems.</li>
-          <li>Use another person's account without authorisation.</li>
+          <li>Use another person&apos;s account without authorisation.</li>
         </ul>
       </>
     ),

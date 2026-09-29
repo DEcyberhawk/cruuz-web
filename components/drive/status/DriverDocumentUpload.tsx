@@ -43,6 +43,12 @@ function isValidGhanaCardNumber(value: string) {
   return /^GHA-\d{9}-\d$/.test(value.trim());
 }
 
+function getErrorMessage(error: unknown, fallback: string) {
+  return error instanceof Error && error.message
+    ? error.message
+    : fallback;
+}
+
 export default function DriverDocumentUpload({
   driverId,
   documentType,
@@ -193,8 +199,11 @@ export default function DriverDocumentUpload({
       );
 
       await onUploaded();
-    } catch (error: any) {
-      showMessage(error?.message || "Upload failed.", "error");
+    } catch (error: unknown) {
+      showMessage(
+        getErrorMessage(error, "Upload failed."),
+        "error"
+      );
     } finally {
       setUploading(false);
     }

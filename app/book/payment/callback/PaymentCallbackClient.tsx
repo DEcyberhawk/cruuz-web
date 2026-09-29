@@ -38,6 +38,12 @@ type CreatedTrip = {
 
 class AuthenticationRequiredError extends Error {}
 
+function getErrorMessage(error: unknown, fallback: string) {
+  return error instanceof Error && error.message
+    ? error.message
+    : fallback;
+}
+
 export default function PaymentCallbackClient() {
   const searchParams = useSearchParams();
   const reference = (
@@ -55,10 +61,6 @@ export default function PaymentCallbackClient() {
   const [otpCode, setOtpCode] = useState("");
   const [otpSent, setOtpSent] = useState(false);
   const [authBusy, setAuthBusy] = useState(false);
-
-  useEffect(() => {
-    setPhone(window.localStorage.getItem(WEB_VERIFIED_PHONE_KEY) || "");
-  }, []);
 
   useEffect(() => {
     if (processingRef.current) return;
@@ -135,6 +137,9 @@ export default function PaymentCallbackClient() {
 
         const token = window.localStorage.getItem(WEB_AUTH_TOKEN_KEY) || "";
         if (!token) {
+          setPhone(
+            window.localStorage.getItem(WEB_VERIFIED_PHONE_KEY) || "",
+          );
           setState("AUTH_REQUIRED");
           setMessage(
             "Your CRUUZ session expired after payment. Verify your phone to finish this paid booking.",
@@ -190,9 +195,12 @@ export default function PaymentCallbackClient() {
         setTrip(created.trip);
         setState("SUCCESS");
         setMessage("Payment verified and your CRUUZ has been requested.");
-      } catch (error: any) {
+      } catch (error: unknown) {
         if (error instanceof AuthenticationRequiredError) {
           window.localStorage.removeItem(WEB_AUTH_TOKEN_KEY);
+          setPhone(
+            window.localStorage.getItem(WEB_VERIFIED_PHONE_KEY) || "",
+          );
           setState("AUTH_REQUIRED");
           setMessage(error.message);
           return;
@@ -200,7 +208,7 @@ export default function PaymentCallbackClient() {
 
         setState("FAILED");
         setMessage(
-          error?.message || "CRUUZ could not complete this paid booking.",
+          getErrorMessage(error, "CRUUZ could not complete this paid booking."),
         );
       }
     }
@@ -247,9 +255,9 @@ export default function PaymentCallbackClient() {
       });
       setOtpSent(true);
       setMessage("Enter the six-digit verification code sent to your phone.");
-    } catch (error: any) {
+    } catch (error: unknown) {
       setMessage(
-        error?.message || "CRUUZ could not send the verification code.",
+        getErrorMessage(error, "CRUUZ could not send the verification code."),
       );
     } finally {
       setAuthBusy(false);
@@ -293,8 +301,8 @@ export default function PaymentCallbackClient() {
       setMessage("Phone verified. Resuming your paid booking…");
       processingRef.current = false;
       setAttempt((value) => value + 1);
-    } catch (error: any) {
-      setMessage(error?.message || "CRUUZ could not verify this code.");
+    } catch (error: unknown) {
+      setMessage(getErrorMessage(error, "CRUUZ could not verify this code."));
     } finally {
       setAuthBusy(false);
     }

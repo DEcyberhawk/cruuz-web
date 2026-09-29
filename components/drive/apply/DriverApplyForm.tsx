@@ -14,6 +14,30 @@ type DriverForm = {
   vehicleColor: string;
 };
 
+function getErrorMessage(error: unknown, fallback: string) {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  if (typeof error === "object" && error !== null && "response" in error) {
+    const response = (
+      error as {
+        response?: {
+          data?: {
+            message?: unknown;
+          };
+        };
+      }
+    ).response;
+
+    if (typeof response?.data?.message === "string") {
+      return response.data.message;
+    }
+  }
+
+  return fallback;
+}
+
 export default function DriverApplyForm() {
   const [step, setStep] = useState<Step>("phone");
   const [loading, setLoading] = useState(false);
@@ -70,11 +94,11 @@ export default function DriverApplyForm() {
 
       setStep("otp");
       setMessage("OTP sent. Use 1234 for development.");
-  } catch (error: any) {
-  const errorMessage =
-    error?.message ||
-    error?.response?.data?.message ||
-    "Application submission failed.";
+  } catch (error: unknown) {
+  const errorMessage = getErrorMessage(
+    error,
+    "Application submission failed."
+  );
 
   if (
     errorMessage.toLowerCase().includes("already has a driver profile")
@@ -114,8 +138,10 @@ export default function DriverApplyForm() {
       localStorage.setItem("cruuz_web_user", JSON.stringify(response.user));
 
       setStep("driver");
-    } catch (error: any) {
-      setMessage(error.message || "OTP verification failed.");
+    } catch (error: unknown) {
+      setMessage(
+        getErrorMessage(error, "OTP verification failed.")
+      );
     } finally {
       setLoading(false);
     }
@@ -167,8 +193,10 @@ export default function DriverApplyForm() {
       });
 
       setStep("done");
-    } catch (error: any) {
-      setMessage(error.message || "Application submission failed.");
+    } catch (error: unknown) {
+      setMessage(
+        getErrorMessage(error, "Application submission failed.")
+      );
     } finally {
       setLoading(false);
     }
