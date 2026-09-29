@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { apiFetch } from "@/lib/api";
 import { joinDriverRoom } from "@/lib/socket";
 import DriverDocumentUpload from "./DriverDocumentUpload";
@@ -25,6 +25,35 @@ type WalletTransaction = {
   createdAt: string;
 };
 
+type DriverProfile = {
+  id: string;
+  fullName: string;
+  status: string;
+  availability: string;
+  vehicleType: string;
+  vehiclePlate: string;
+  vehicleColor?: string;
+};
+
+type WalletSummary = {
+  walletBalance?: number | string;
+};
+
+type StoredUser = {
+  id: string;
+};
+
+type DriverStatusUpdate = {
+  driver?: DriverProfile;
+  status?: string;
+};
+
+function getErrorMessage(error: unknown, fallback: string) {
+  return error instanceof Error && error.message
+    ? error.message
+    : fallback;
+}
+
 const MINIMUM_DRIVER_BALANCE = 20;
 
 const requiredDocuments = [
@@ -42,18 +71,18 @@ function getToken() {
 }
 
 export default function DriverStatusPanel() {
-  const [driver, setDriver] = useState<any>(null);
+  const [driver, setDriver] = useState<DriverProfile | null>(null);
   const [documents, setDocuments] = useState<DriverDocument[]>([]);
-  const [wallet, setWallet] = useState<any>(null);
+  const [wallet, setWallet] = useState<WalletSummary | null>(null);
   const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<StoredUser | null>(null);
   const [topUpAmount, setTopUpAmount] = useState("20");
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState("");
   const [message, setMessage] = useState("");
   const [lastUpdatedAt, setLastUpdatedAt] = useState("");
 
-  async function loadStatus() {
+  const loadStatus = useCallback(async () => {
     try {
       setLoading(true);
       setMessage("");
@@ -123,12 +152,17 @@ export default function DriverStatusPanel() {
       }
 
       setLastUpdatedAt(new Date().toLocaleTimeString());
-    } catch (error: any) {
-      setMessage(error?.message || "Could not load driver command center.");
+    } catch (error: unknown) {
+      setMessage(
+        getErrorMessage(
+          error,
+          "Could not load driver command center."
+        )
+      );
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
 
   async function updateAvailability(availability: "ONLINE" | "OFFLINE") {
     const token = getToken();
@@ -156,8 +190,13 @@ export default function DriverStatusPanel() {
       );
 
       await loadStatus();
-    } catch (error: any) {
-      setMessage(error?.message || "Could not update availability.");
+    } catch (error: unknown) {
+      setMessage(
+        getErrorMessage(
+          error,
+          "Could not update availability."
+        )
+      );
     } finally {
       setActionLoading("");
     }
@@ -189,32 +228,45 @@ export default function DriverStatusPanel() {
 
       setMessage(`Wallet topped up with GHS ${amount.toFixed(2)}.`);
       await loadStatus();
-    } catch (error: any) {
-      setMessage(error?.message || "Wallet top-up failed.");
+    } catch (error: unknown) {
+      setMessage(
+        getErrorMessage(error, "Wallet top-up failed.")
+      );
     } finally {
       setActionLoading("");
     }
   }
 
   useEffect(() => {
-    loadStatus();
-    const interval = window.setInterval(loadStatus, 15000);
-    return () => window.clearInterval(interval);
-  }, []);
+    const initialLoad = window.setTimeout(() => {
+      void loadStatus();
+    }, 0);
+
+    const interval = window.setInterval(() => {
+      void loadStatus();
+    }, 15000);
+
+    return () => {
+      window.clearTimeout(initialLoad);
+      window.clearInterval(interval);
+    };
+  }, [loadStatus]);
 
   useEffect(() => {
     if (!user?.id) return;
 
     const socket = joinDriverRoom(user.id);
 
-    function handleStatusUpdate(payload: any) {
+    function handleStatusUpdate(payload: DriverStatusUpdate) {
       if (payload?.driver) {
         setDriver(payload.driver);
       }
 
       if (payload?.status) {
-        setDriver((prev: any) =>
-          prev ? { ...prev, status: payload.status } : prev
+        setDriver((previousDriver) =>
+          previousDriver
+            ? { ...previousDriver, status: payload.status }
+            : previousDriver
         );
       }
 
@@ -238,7 +290,7 @@ export default function DriverStatusPanel() {
       socket.off("driver:rejected", handleStatusUpdate);
       socket.off("driver:suspended", handleStatusUpdate);
     };
-  }, [user?.id]);
+  }, [user?.id, loadStatus]);
 
   const documentMap = useMemo(() => {
     const map = new Map<string, DriverDocument>();
