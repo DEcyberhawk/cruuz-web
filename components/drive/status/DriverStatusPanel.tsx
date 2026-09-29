@@ -265,7 +265,7 @@ export default function DriverStatusPanel() {
       if (payload?.status) {
         setDriver((previousDriver) =>
           previousDriver
-            ? { ...previousDriver, status: payload.status }
+            ? { ...previousDriver, status: payload.status ?? previousDriver.status }
             : previousDriver
         );
       }

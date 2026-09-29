@@ -2,7 +2,11 @@
 
 import Image from "next/image";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useState,
+} from "react";
 
 type GalleryItem = {
   title: string;
@@ -21,13 +25,17 @@ export default function GalleryModal({
   const [index, setIndex] = useState(startIndex);
   const item = items[index];
 
-  function previous() {
-    setIndex((current) => (current === 0 ? items.length - 1 : current - 1));
-  }
+  const previous = useCallback(() => {
+    setIndex((current) =>
+      current === 0 ? items.length - 1 : current - 1
+    );
+  }, [items.length]);
 
-  function next() {
-    setIndex((current) => (current === items.length - 1 ? 0 : current + 1));
-  }
+  const next = useCallback(() => {
+    setIndex((current) =>
+      current === items.length - 1 ? 0 : current + 1
+    );
+  }, [items.length]);
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
@@ -38,7 +46,7 @@ export default function GalleryModal({
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, []);
+  }, [next, onClose, previous]);
 
   return (
     <div className="fixed inset-0 z-[100] bg-black/85 p-4 backdrop-blur-xl">

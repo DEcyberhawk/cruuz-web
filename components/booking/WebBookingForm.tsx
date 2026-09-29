@@ -4,6 +4,7 @@ import {
   FormEvent,
   ReactNode,
   useEffect,
+  useEffectEvent,
   useMemo,
   useRef,
   useState,
@@ -199,10 +200,62 @@ const PREPAID_PAYMENT_METHODS: PaymentMethod[] = [
 
 const ACCRA_CENTER: [number, number] = [-0.187, 5.6037];
 
+type GoogleMapInstance = {
+  fitBounds: (bounds: GoogleBoundsInstance, padding?: number) => void;
+  panTo: (position: { lat: number; lng: number }) => void;
+  setZoom: (zoom: number) => void;
+};
+
+type GoogleMarkerInstance = {
+  setMap: (map: GoogleMapInstance | null) => void;
+};
+
+type GooglePolylineInstance = {
+  setMap: (map: GoogleMapInstance | null) => void;
+};
+
+type GoogleBoundsInstance = {
+  extend: (position: { lat: number; lng: number }) => void;
+};
+
+type GoogleRouteLeg = {
+  distance?: { value?: number };
+  duration?: { value?: number };
+};
+
+type GoogleRoute = {
+  legs?: GoogleRouteLeg[];
+  overview_path?: unknown[];
+  bounds?: GoogleBoundsInstance;
+};
+
+type GoogleDirectionsResult = { routes: GoogleRoute[] };
+
+type GoogleDirectionsServiceInstance = {
+  route: (
+    request: Record<string, unknown>,
+    callback: (result: GoogleDirectionsResult | null, status: string) => void
+  ) => void;
+};
+
+type GoogleMapsApi = {
+  Map: new (element: HTMLElement, options: Record<string, unknown>) => GoogleMapInstance;
+  Marker: new (options: Record<string, unknown>) => GoogleMarkerInstance;
+  Polyline: new (options: Record<string, unknown>) => GooglePolylineInstance;
+  LatLngBounds: new () => GoogleBoundsInstance;
+  DirectionsService: new () => GoogleDirectionsServiceInstance;
+  TravelMode: { DRIVING: unknown };
+  SymbolPath: { CIRCLE: unknown };
+};
+
 type GoogleMapsWindow = Window & {
-  google?: any;
+  google?: { maps: GoogleMapsApi };
   __cruuzGoogleMapsPromise?: Promise<void>;
 };
+
+function getErrorMessage(error: unknown, fallback: string) {
+  return error instanceof Error && error.message ? error.message : fallback;
+}
 
 function loadGoogleMaps(): Promise<void> {
   const browserWindow = window as GoogleMapsWindow;
@@ -326,13 +379,16 @@ const rideTypes: Array<{
 
 export default function WebBookingForm() {
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
-  const mapRef = useRef<any>(null);
+  const mapRef = useRef<GoogleMapInstance | null>(null);
 
-  const pickupMarkerRef = useRef<any>(null);
+  const pickupMarkerRef =
+    useRef<GoogleMarkerInstance | null>(null);
   const destinationMarkerRef =
-    useRef<any>(null);
-  const stopMarkerRefs = useRef<Map<string, any>>(new Map());
-  const routePolylineRef = useRef<any>(null);
+    useRef<GoogleMarkerInstance | null>(null);
+  const stopMarkerRefs =
+    useRef<Map<string, GoogleMarkerInstance>>(new Map());
+  const routePolylineRef =
+    useRef<GooglePolylineInstance | null>(null);
 
   const pickupSearchAbortRef =
     useRef<AbortController | null>(null);
@@ -424,14 +480,26 @@ const [
   const [email, setEmail] = useState("");
   const [otpCode, setOtpCode] = useState("");
   const [otpSent, setOtpSent] = useState(false);
-  const [verifiedPhone, setVerifiedPhone] = useState("");
-  const [accessToken, setAccessToken] = useState("");
+  const [verifiedPhone, setVerifiedPhone] = useState(() =>
+    typeof window === "undefined"
+      ? ""
+      : window.localStorage.getItem(WEB_VERIFIED_PHONE_KEY) || ""
+  );
+  const [accessToken, setAccessToken] = useState(() =>
+    typeof window === "undefined"
+      ? ""
+      : window.localStorage.getItem(WEB_AUTH_TOKEN_KEY) || ""
+  );
   const [authBusy, setAuthBusy] = useState(false);
   const [bookingBusy, setBookingBusy] = useState(false);
   const [paymentMethod, setPaymentMethod] =
     useState<PaymentMethod>("CASH");
   const [pendingPaymentReference, setPendingPaymentReference] =
-    useState("");
+    useState(() =>
+      typeof window === "undefined"
+        ? ""
+        : window.localStorage.getItem(WEB_PENDING_PAYMENT_KEY) || ""
+    );
   const [createdTrip, setCreatedTrip] =
     useState<CreatedTrip | null>(null);
 
@@ -452,18 +520,6 @@ const [
   const selectedPricingId =
     PRICING_TYPE_MAP[rideType];
 
-  useEffect(() => {
-    const savedToken = window.localStorage.getItem(WEB_AUTH_TOKEN_KEY) || "";
-    const savedPhone =
-      window.localStorage.getItem(WEB_VERIFIED_PHONE_KEY) || "";
-    const savedPayment =
-      window.localStorage.getItem(WEB_PENDING_PAYMENT_KEY) || "";
-
-    setAccessToken(savedToken);
-    setVerifiedPhone(savedPhone);
-    setPendingPaymentReference(savedPayment);
-  }, []);
-
   const selectedFare = useMemo(() => {
     if (!selectedPricingId) return null;
 
@@ -481,6 +537,9 @@ const [
     }
 
     let active = true;
+    const stopMarkers = stopMarkerRefs.current;
+    const stopSearchControllers = stopSearchAbortRefs.current;
+    const stopSearchTimeouts = stopSearchTimeoutRefs.current;
 
     void loadGoogleMaps()
       .then(() => {
@@ -520,10 +579,10 @@ const [
       active = false;
       pickupMarkerRef.current?.setMap(null);
       destinationMarkerRef.current?.setMap(null);
-      stopMarkerRefs.current.forEach((marker) => marker.setMap(null));
-      stopMarkerRefs.current.clear();
-      stopSearchAbortRefs.current.forEach((controller) => controller.abort());
-      stopSearchTimeoutRefs.current.forEach((timeout) =>
+      stopMarkers.forEach((marker) => marker.setMap(null));
+      stopMarkers.clear();
+      stopSearchControllers.forEach((controller) => controller.abort());
+      stopSearchTimeouts.forEach((timeout) =>
         window.clearTimeout(timeout)
       );
       routePolylineRef.current?.setMap(null);
@@ -531,186 +590,7 @@ const [
     };
   }, []);
 
-  useEffect(() => {
-    if (
-      pickup &&
-      normalizeKey(pickupText) ===
-        normalizeKey(pickup.name)
-    ) {
-      return;
-    }
 
-    if (pickupText.trim().length < 2) {
-      pickupSearchAbortRef.current?.abort();
-      setPickupSuggestions([]);
-      setPickupSearching(false);
-      return;
-    }
-
-    const timeout = window.setTimeout(() => {
-      void searchLocation(
-        pickupText,
-        "pickup"
-      );
-    }, 300);
-
-    return () => {
-      window.clearTimeout(timeout);
-    };
-  }, [pickupText, pickup]);
-
-  useEffect(() => {
-    if (
-      destination &&
-      normalizeKey(destinationText) ===
-        normalizeKey(destination.name)
-    ) {
-      return;
-    }
-
-    if (destinationText.trim().length < 2) {
-      destinationSearchAbortRef.current?.abort();
-      setDestinationSuggestions([]);
-      setDestinationSearching(false);
-      return;
-    }
-
-    const timeout = window.setTimeout(() => {
-      void searchLocation(
-        destinationText,
-        "destination"
-      );
-    }, 300);
-
-    return () => {
-      window.clearTimeout(timeout);
-    };
-  }, [destinationText, destination]);
-
-  const routeStopsKey = stops
-    .map((stop) =>
-      stop.place
-        ? `${stop.place.latitude},${stop.place.longitude}`
-        : "pending"
-    )
-    .join("|");
-
-  useEffect(() => {
-    const selectedStops = stops
-      .map((stop) => stop.place)
-      .filter((place): place is SelectedPlace => Boolean(place));
-
-    if (
-      !pickup ||
-      !destination ||
-      selectedStops.length !== stops.length
-    ) {
-      routeAbortRef.current?.abort();
-      clearRoute();
-      setRouteInfo(null);
-      setPricing([]);
-      setPricingError(null);
-      return;
-    }
-
-    void calculateRoute(pickup, destination, selectedStops);
-  }, [pickup, destination, routeStopsKey]);
-
-  useEffect(() => {
-    if (!routeInfo) {
-      pricingAbortRef.current?.abort();
-      setPricing([]);
-      return;
-    }
-
-    void loadPricing(routeInfo);
-  }, [routeInfo]);
-
-
-useEffect(() => {
-  campaignPreviewAbortRef.current?.abort();
-  setAutomaticBenefit(null);
-  setAutomaticBenefitLoading(false);
-
-  if (
-    !selectedFare ||
-    !selectedPricingId ||
-    selectedPricingId === "DELIVERY" ||
-    !CRUUZ_API_URL
-  ) {
-    return;
-  }
-
-  const token = localStorage.getItem(
-    "cruuz_web_token"
-  );
-
-  if (!token) {
-    return;
-  }
-
-  const controller = new AbortController();
-  campaignPreviewAbortRef.current = controller;
-
-  async function loadAutomaticBenefit() {
-    setAutomaticBenefitLoading(true);
-
-    try {
-      const response = await fetch(
-        `${CRUUZ_API_URL}/campaigns/automatic-preview`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            originalFare: selectedFare!.totalFare,
-            rideTypeId: selectedPricingId,
-          }),
-          signal: controller.signal,
-        }
-      );
-
-      const data = await response.json();
-
-      if (controller.signal.aborted) {
-        return;
-      }
-
-      if (
-        response.ok &&
-        data.success &&
-        data.validation?.valid
-      ) {
-        setAutomaticBenefit(
-          data.validation as AutomaticCampaignValidation
-        );
-      } else {
-        setAutomaticBenefit(null);
-      }
-    } catch (error) {
-      if (
-        error instanceof DOMException &&
-        error.name === "AbortError"
-      ) {
-        return;
-      }
-
-      setAutomaticBenefit(null);
-    } finally {
-      if (!controller.signal.aborted) {
-        setAutomaticBenefitLoading(false);
-      }
-    }
-  }
-
-  void loadAutomaticBenefit();
-
-  return () => {
-    controller.abort();
-  };
-}, [selectedFare, selectedPricingId]);
 
   async function searchLocation(
     query: string,
@@ -1108,12 +988,12 @@ useEffect(() => {
     const browserWindow = window as GoogleMapsWindow;
     if (!map || !browserWindow.google?.maps) return;
 
-    const marker = new browserWindow.google.maps.Marker({
+    const marker = new browserWindow.google!.maps.Marker({
       position: { lat: place.latitude, lng: place.longitude },
       map,
       title: place.name,
       icon: {
-        path: browserWindow.google.maps.SymbolPath.CIRCLE,
+        path: browserWindow.google!.maps.SymbolPath.CIRCLE,
         fillColor: "#f59e0b",
         fillOpacity: 1,
         strokeColor: "#ffffff",
@@ -1134,7 +1014,7 @@ useEffect(() => {
     const browserWindow = window as GoogleMapsWindow;
     if (!map || !browserWindow.google?.maps) return;
 
-    const marker = new browserWindow.google.maps.Marker({
+    const marker = new browserWindow.google!.maps.Marker({
       position: {
         lat: place.latitude,
         lng: place.longitude,
@@ -1142,7 +1022,7 @@ useEffect(() => {
       map,
       title: place.name,
       icon: {
-        path: browserWindow.google.maps.SymbolPath.CIRCLE,
+        path: browserWindow.google!.maps.SymbolPath.CIRCLE,
         fillColor:
           field === "pickup" ? "#16a34a" : "#7c3aed",
         fillOpacity: 1,
@@ -1285,11 +1165,15 @@ useEffect(() => {
     setPricing([]);
 
     try {
-      const googleMaps = browserWindow.google.maps;
+      const googleMaps = browserWindow.google?.maps;
+
+      if (!googleMaps) {
+        throw new Error("Google Maps is unavailable.");
+      }
       const directionsService =
         new googleMaps.DirectionsService();
 
-      const result = await new Promise<any>(
+      const result = await new Promise<GoogleDirectionsResult>(
         (resolve, reject) => {
           directionsService.route(
             {
@@ -1312,7 +1196,7 @@ useEffect(() => {
               travelMode: googleMaps.TravelMode.DRIVING,
               provideRouteAlternatives: false,
             },
-            (routeResult: any, status: string) => {
+            (routeResult: GoogleDirectionsResult | null, status: string) => {
               if (
                 status === "OK" &&
                 routeResult?.routes?.[0]
@@ -1341,14 +1225,14 @@ useEffect(() => {
 
       const distanceKm =
         legs.reduce(
-          (total: number, leg: any) =>
+          (total: number, leg: GoogleRouteLeg) =>
             total + Number(leg.distance?.value || 0),
           0
         ) / 1000;
 
       const durationMinutes =
         legs.reduce(
-          (total: number, leg: any) =>
+          (total: number, leg: GoogleRouteLeg) =>
             total + Number(leg.duration?.value || 0),
           0
         ) / 60;
@@ -1361,7 +1245,7 @@ useEffect(() => {
       drawRoute(route.overview_path || []);
 
       fitRouteBounds(from, to, route.bounds);
-    } catch (error) {
+    } catch {
       if (controller.signal.aborted) {
         return;
       }
@@ -1454,7 +1338,7 @@ useEffect(() => {
     }
   }
 
-  function drawRoute(path: any[]) {
+  function drawRoute(path: unknown[]) {
     const map = mapRef.current;
     const browserWindow = window as GoogleMapsWindow;
     if (!map || !browserWindow.google?.maps) return;
@@ -1479,7 +1363,7 @@ useEffect(() => {
   function fitRouteBounds(
     from: SelectedPlace,
     to: SelectedPlace,
-    routeBounds?: any
+    routeBounds?: GoogleBoundsInstance
   ) {
     const map = mapRef.current;
     const browserWindow = window as GoogleMapsWindow;
@@ -1505,6 +1389,184 @@ useEffect(() => {
 
     map.fitBounds(bounds, 80);
   }
+
+  const routeStopsKey = useMemo(
+    () =>
+      stops
+        .map((stop) =>
+          stop.place
+            ? String(stop.place.latitude) + "," + String(stop.place.longitude)
+            : "pending"
+        )
+        .join("|"),
+    [stops]
+  );
+
+  const searchLocationEffect = useEffectEvent(searchLocation);
+  const calculateRouteEffect = useEffectEvent(calculateRoute);
+  const loadPricingEffect = useEffectEvent(loadPricing);
+
+  useEffect(() => {
+    if (
+      pickup &&
+      normalizeKey(pickupText) === normalizeKey(pickup.name)
+    ) {
+      return;
+    }
+
+    const timeout = window.setTimeout(
+      () => {
+        if (pickupText.trim().length < 2) {
+          pickupSearchAbortRef.current?.abort();
+          setPickupSuggestions([]);
+          setPickupSearching(false);
+          return;
+        }
+
+        void searchLocationEffect(pickupText, "pickup");
+      },
+      pickupText.trim().length < 2 ? 0 : 300
+    );
+
+    return () => window.clearTimeout(timeout);
+  }, [pickupText, pickup]);
+
+  useEffect(() => {
+    if (
+      destination &&
+      normalizeKey(destinationText) === normalizeKey(destination.name)
+    ) {
+      return;
+    }
+
+    const timeout = window.setTimeout(
+      () => {
+        if (destinationText.trim().length < 2) {
+          destinationSearchAbortRef.current?.abort();
+          setDestinationSuggestions([]);
+          setDestinationSearching(false);
+          return;
+        }
+
+        void searchLocationEffect(destinationText, "destination");
+      },
+      destinationText.trim().length < 2 ? 0 : 300
+    );
+
+    return () => window.clearTimeout(timeout);
+  }, [destinationText, destination]);
+
+  useEffect(() => {
+    const selectedStops = stops
+      .map((stop) => stop.place)
+      .filter((place): place is SelectedPlace => Boolean(place));
+
+    const timeout = window.setTimeout(() => {
+      if (
+        !pickup ||
+        !destination ||
+        selectedStops.length !== stops.length
+      ) {
+        routeAbortRef.current?.abort();
+        clearRoute();
+        setRouteInfo(null);
+        setPricing([]);
+        setPricingError(null);
+        return;
+      }
+
+      void calculateRouteEffect(pickup, destination, selectedStops);
+    }, 0);
+
+    return () => window.clearTimeout(timeout);
+  }, [pickup, destination, routeStopsKey, stops]);
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      if (!routeInfo) {
+        pricingAbortRef.current?.abort();
+        setPricing([]);
+        return;
+      }
+
+      void loadPricingEffect(routeInfo);
+    }, 0);
+
+    return () => window.clearTimeout(timeout);
+  }, [routeInfo]);
+
+  useEffect(() => {
+    campaignPreviewAbortRef.current?.abort();
+
+    const controller = new AbortController();
+    campaignPreviewAbortRef.current = controller;
+
+    const timeout = window.setTimeout(() => {
+      setAutomaticBenefit(null);
+      setAutomaticBenefitLoading(false);
+
+      if (
+        !selectedFare ||
+        !selectedPricingId ||
+        selectedPricingId === "DELIVERY" ||
+        !CRUUZ_API_URL
+      ) {
+        return;
+      }
+
+      const token = localStorage.getItem("cruuz_web_token");
+      if (!token) return;
+
+      async function loadAutomaticBenefit() {
+        setAutomaticBenefitLoading(true);
+
+        try {
+          const response = await fetch(
+            CRUUZ_API_URL + "/campaigns/automatic-preview",
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: "Bearer " + token,
+              },
+              body: JSON.stringify({
+                originalFare: selectedFare!.totalFare,
+                rideTypeId: selectedPricingId,
+              }),
+              signal: controller.signal,
+            }
+          );
+
+          const data = await response.json();
+          if (controller.signal.aborted) return;
+
+          if (response.ok && data.success && data.validation?.valid) {
+            setAutomaticBenefit(
+              data.validation as AutomaticCampaignValidation
+            );
+          }
+        } catch (error) {
+          if (
+            error instanceof DOMException &&
+            error.name === "AbortError"
+          ) {
+            return;
+          }
+        } finally {
+          if (!controller.signal.aborted) {
+            setAutomaticBenefitLoading(false);
+          }
+        }
+      }
+
+      void loadAutomaticBenefit();
+    }, 0);
+
+    return () => {
+      window.clearTimeout(timeout);
+      controller.abort();
+    };
+  }, [selectedFare, selectedPricingId]);
 
   async function apiRequest<T>(
     path: string,
@@ -1575,8 +1637,10 @@ useEffect(() => {
         result.message ||
           "A six-digit verification code was sent to your phone."
       );
-    } catch (error: any) {
-      setMessage(error.message || "Could not send the verification code.");
+    } catch (error: unknown) {
+      setMessage(
+        getErrorMessage(error, "Could not send the verification code.")
+      );
     } finally {
       setAuthBusy(false);
     }
@@ -1624,8 +1688,10 @@ useEffect(() => {
         phone.trim()
       );
       setMessage("Phone verified. You can now request your CRUUZ.");
-    } catch (error: any) {
-      setMessage(error.message || "Could not verify this code.");
+    } catch (error: unknown) {
+      setMessage(
+        getErrorMessage(error, "Could not verify this code.")
+      );
     } finally {
       setAuthBusy(false);
     }
@@ -1837,8 +1903,10 @@ useEffect(() => {
       } else {
         await createTrip();
       }
-    } catch (error: any) {
-      setMessage(error.message || "CRUUZ could not request this ride.");
+    } catch (error: unknown) {
+      setMessage(
+        getErrorMessage(error, "CRUUZ could not request this ride.")
+      );
     } finally {
       setBookingBusy(false);
     }
