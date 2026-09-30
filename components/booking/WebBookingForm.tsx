@@ -173,9 +173,6 @@ const CRUUZ_API_URL = (
   process.env.NEXT_PUBLIC_CRUUZ_API_URL || ""
 ).replace(/\/$/, "");
 
-const PAYSTACK_LIVE_ENABLED =
-  process.env.NEXT_PUBLIC_PAYSTACK_LIVE_ENABLED === "true";
-
 const WEB_VERIFIED_PHONE_KEY = "cruuz_web_verified_phone";
 
 const PAYMENT_METHODS: Array<{
@@ -2601,12 +2598,6 @@ const [
                       <Check className="h-5 w-5 shrink-0 text-violet-400" />
                     )}
                   </div>
-
-                  {prepaid && !PAYSTACK_LIVE_ENABLED && (
-                    <span className="mt-3 inline-flex rounded-full bg-amber-500/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-amber-300">
-                      Paystack test mode
-                    </span>
-                  )}
                 </button>
               );
             })}
@@ -2766,7 +2757,7 @@ const [
                       )
                     ? pendingPaymentReference
                       ? "Verify payment & request ride"
-                      : `Continue to Paystack${PAYSTACK_LIVE_ENABLED ? "" : " test"}`
+                      : "Continue to Paystack"
                     : "Request CRUUZ"}
             <ArrowRight className="h-5 w-5" />
           </button>
