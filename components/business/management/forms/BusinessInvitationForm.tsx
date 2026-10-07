@@ -15,6 +15,7 @@ import type {
   BusinessDepartment,
   InvitationInput,
 } from "@/lib/business/types";
+import { invitationLink } from "@/lib/business/invitation";
 import { BusinessManagementDialog } from "../BusinessManagementDialog";
 
 type InvitationRole = InvitationInput["role"];
@@ -78,8 +79,14 @@ export function BusinessInvitationForm({
     useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [created, setCreated] = useState(false);
+  const [shareLink, setShareLink] = useState("");
+  const [copyMessage, setCopyMessage] = useState("");
 
   function handleClose() {
+    setCreated(false);
+    setShareLink("");
+    setCopyMessage("");
     setEmail("");
     setRole("RIDER");
     setDepartmentId("");
@@ -93,12 +100,16 @@ export function BusinessInvitationForm({
     setCanManagePolicies(false);
     setError(null);
     onClose();
+    // Refresh only after the link has been copied and the dialog closed.
+    // A parent loading state can otherwise unmount this one-time secret.
+    if (created) void Promise.resolve().then(onCreated).catch(() => {});
   }
 
   async function handleSubmit(
     event: FormEvent<HTMLFormElement>
   ) {
     event.preventDefault();
+    if (submitting || created) return;
 
     const normalizedEmail =
       email.trim().toLowerCase();
@@ -131,7 +142,7 @@ export function BusinessInvitationForm({
     setError(null);
 
     try {
-      await createBusinessInvitation({
+      const result = await createBusinessInvitation({
         email: normalizedEmail,
         role,
         departmentId: departmentId || undefined,
@@ -147,13 +158,23 @@ export function BusinessInvitationForm({
         expiresInDays: parsedExpiry,
       });
 
-      await onCreated();
-      handleClose();
+      setCreated(true);
+      if (result.token) {
+        try { setShareLink(invitationLink(window.location.origin, result.token)); }
+        catch { setError("Invitation created, but its link could not be prepared. Revoke this invitation before creating a replacement."); }
+      } else {
+        setError("Invitation created, but the server returned no link token. Revoke this invitation before creating a replacement.");
+      }
     } catch (failure) {
       setError(getBusinessErrorMessage(failure));
     } finally {
       setSubmitting(false);
     }
+  }
+
+  async function copyLink() {
+    try { await navigator.clipboard.writeText(shareLink); setCopyMessage("Link copied. Send it privately to the invited employee."); }
+    catch { setCopyMessage("Automatic copy is unavailable. Select the link below and copy it manually."); }
   }
 
   const inputClass =
@@ -168,18 +189,30 @@ export function BusinessInvitationForm({
   const activeCostCentres = costCentres.filter(
     (costCentre) =>
       String(costCentre.status).toUpperCase() ===
-      "ACTIVE"
+      "ACTIVE" &&
+      (!departmentId || !costCentre.departmentId || costCentre.departmentId === departmentId)
   );
 
   return (
     <BusinessManagementDialog
       open={open}
       title="Invite employee"
-      description="Invite an employee and configure their company travel access."
+      description="Create an invitation link and configure company travel access. Send the link privately to the employee."
       busy={submitting}
       onClose={handleClose}
     >
-      <form
+      {created ? <div className="space-y-5">
+        <p role="status" className="text-sm text-emerald-200">Invitation created for {email}. No invitation email was sent. Copy this link before closing; it cannot be recovered from the invitation list.</p>
+        {shareLink ? <>
+          <label className="block text-sm font-bold text-slate-200">Private invitation link
+            <textarea aria-label="Private invitation link" readOnly value={shareLink} onFocus={event => event.target.select()} className="mt-2 w-full rounded-xl border border-white/15 bg-white/5 p-3 text-sm text-white" />
+          </label>
+          <button type="button" onClick={copyLink} className="rounded-xl bg-violet-600 px-5 py-3 font-bold text-white">Copy invitation link</button>
+        </> : null}
+        {copyMessage ? <p role="status" className="text-sm text-slate-300">{copyMessage}</p> : null}
+        {error ? <p role="alert" className="text-sm text-amber-200">{error}</p> : null}
+        <button type="button" onClick={handleClose} className="block rounded-xl border border-white/15 px-5 py-3 font-bold text-white">Done</button>
+      </div> : <form
         onSubmit={handleSubmit}
         className="space-y-6"
       >
@@ -250,7 +283,7 @@ export function BusinessInvitationForm({
             <select
               value={departmentId}
               onChange={(event) =>
-                setDepartmentId(event.target.value)
+                { setDepartmentId(event.target.value); setDefaultCostCentreId(""); }
               }
               disabled={submitting}
               className={inputClass}
@@ -434,14 +467,14 @@ export function BusinessInvitationForm({
             {submitting ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />
-                Sending...
+                Creating...
               </>
             ) : (
-              "Send invitation"
+              "Create invitation link"
             )}
           </button>
         </div>
-      </form>
+      </form>}
     </BusinessManagementDialog>
   );
 }
