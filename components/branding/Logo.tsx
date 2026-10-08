@@ -9,10 +9,10 @@ type LogoProps = {
 export default function Logo({ width = 204, priority = false }: LogoProps) {
   return (
     <Image
-      src="/assets/brand/cruuz-full-logo.png"
+      src="/assets/brand/cruuz-full-logo-transparent.png"
       alt="CRUUZ — A better way to get there."
-      width={2048}
-      height={682}
+      width={2171}
+      height={724}
       priority={priority}
       sizes={`${width}px`}
       style={{ width, maxWidth: "100%", height: "auto" }}
