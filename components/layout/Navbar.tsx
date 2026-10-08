@@ -37,17 +37,7 @@ export default function Navbar() {
           onClick={() => setOpen(false)}
           aria-label="CRUUZ Home"
         >
-          <Logo size={78} />
-
-          <div className="hidden sm:block">
-            <p className="text-lg font-black tracking-tight text-white">
-              CRUUZ
-            </p>
-
-            <p className="whitespace-nowrap text-[9px] font-bold uppercase tracking-[0.08em] text-white/35">
-              A better way to get there.
-            </p>
-          </div>
+          <Logo width={204} priority />
         </Link>
 
         {/* Desktop navigation */}
