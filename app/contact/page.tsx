@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, Suspense, useMemo, useState } from "react";
+import { FormEvent, Suspense, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   ArrowLeft,
@@ -58,25 +58,41 @@ function ContactPageContent() {
   });
 
   const [submitted, setSubmitted] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [website, setWebsite] = useState("");
+  const inFlight = useRef(false);
+  const submissionId = useRef<string | null>(null);
 
   function updateField(field: keyof FormState, value: string) {
+    submissionId.current = null;
     setForm((current) => ({
       ...current,
       [field]: value,
     }));
   }
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-
-    /*
-      Frontend form is ready.
-
-      We are intentionally NOT pretending to send/store the message yet.
-      The next step will connect this to the real CRUUZ backend contact API.
-    */
-
-    setSubmitted(true);
+    if (inFlight.current) return;
+    inFlight.current = true;
+    setBusy(true); setError("");
+    try {
+      submissionId.current ||= window.crypto.randomUUID();
+      const response = await fetch("/api/contact", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Idempotency-Key": submissionId.current },
+        body: JSON.stringify({ ...form, website }),
+        signal: AbortSignal.timeout(15000),
+      });
+      const data = await response.json();
+      if (!response.ok || data?.ok !== true) {
+        throw new Error(typeof data?.message === "string" ? data.message : "Your message was not confirmed. Please use the email or phone contacts before trying again.");
+      }
+      setSubmitted(true);
+    } catch (failure) {
+      setError(failure instanceof Error && failure.name === "Error" ? failure.message : "We could not confirm your submission. Please use the email or phone contacts before trying again.");
+    } finally { inFlight.current = false; setBusy(false); }
   }
 
   return (
@@ -153,21 +169,24 @@ function ContactPageContent() {
                 </div>
 
                 <h2 className="mt-6 text-2xl font-black">
-                  Form ready
+                  Message submitted
                 </h2>
 
                 <p className="mt-3 max-w-md text-white/60">
-                  Your contact form is now working in the interface.
-                  The next step is connecting it to the CRUUZ backend
-                  so messages are actually stored and delivered.
+                  Your message has been submitted to CRUUZ. Our team can
+                  reply using the email address you provided.
                 </p>
 
                 <button
                   type="button"
-                  onClick={() => setSubmitted(false)}
+                  onClick={() => {
+                    submissionId.current = null;
+                    setForm({ name: "", email: "", phone: "", subject: initialSubject, message: "" });
+                    setSubmitted(false); setError("");
+                  }}
                   className="mt-8 rounded-2xl border border-white/15 bg-white/[0.05] px-5 py-3 font-bold transition hover:bg-white/[0.1]"
                 >
-                  Back to form
+                  Write another message
                 </button>
               </div>
             ) : (
@@ -177,17 +196,24 @@ function ContactPageContent() {
                 </h2>
 
                 <p className="mt-2 text-sm leading-6 text-white/55">
-                  Complete the form below and our team will be able
-                  to respond once the backend connection is enabled.
+                  Complete the form below to contact our team. For urgent
+                  assistance, use the phone contacts shown on this page.
                 </p>
 
                 <form
                   onSubmit={handleSubmit}
                   className="mt-8 space-y-5"
                 >
+                  <fieldset disabled={busy} className="space-y-5">
+                  <div hidden aria-hidden="true">
+                    <label>Website<input tabIndex={-1} autoComplete="off" value={website} onChange={event => setWebsite(event.target.value)} /></label>
+                  </div>
+                  {error ? <p role="alert" className="rounded-xl border border-amber-400/30 bg-amber-400/10 p-4 text-sm text-amber-100">{error}</p> : null}
                   <Field label="Full name">
                     <input
                       required
+                      maxLength={120}
+                      autoComplete="name"
                       value={form.name}
                       onChange={(event) =>
                         updateField("name", event.target.value)
@@ -202,6 +228,8 @@ function ContactPageContent() {
                       <input
                         required
                         type="email"
+                        maxLength={254}
+                        autoComplete="email"
                         value={form.email}
                         onChange={(event) =>
                           updateField("email", event.target.value)
@@ -213,6 +241,9 @@ function ContactPageContent() {
 
                     <Field label="Phone number">
                       <input
+                        type="tel"
+                        maxLength={40}
+                        autoComplete="tel"
                         value={form.phone}
                         onChange={(event) =>
                           updateField("phone", event.target.value)
@@ -256,6 +287,7 @@ function ContactPageContent() {
                     <textarea
                       required
                       rows={7}
+                      maxLength={5000}
                       value={form.message}
                       onChange={(event) =>
                         updateField("message", event.target.value)
@@ -270,8 +302,9 @@ function ContactPageContent() {
                     className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-violet-600 to-fuchsia-500 px-6 py-4 font-black text-white shadow-lg shadow-violet-950/30 transition hover:scale-[1.01]"
                   >
                     <Send className="h-5 w-5" />
-                    Send Message
+                    {busy ? "Submitting..." : "Send Message"}
                   </button>
+                  </fieldset>
                 </form>
               </>
             )}

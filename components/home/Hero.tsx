@@ -146,13 +146,13 @@ export default function Hero() {
               />
             </Link>
 
-            <a
-              href="mailto:info@cruuz.org"
-              className="inline-flex items-center justify-center gap-3 rounded-2xl border border-white/20 bg-white/10 px-7 py-4 font-black backdrop-blur transition hover:bg-white/15"
-            >
-              Contact CRUUZ
-              <Mail size={18} />
-            </a>
+            <Link
+  href="/contact"
+  className="inline-flex items-center justify-center gap-3 rounded-2xl border border-white/20 bg-white/10 px-7 py-4 font-black backdrop-blur transition hover:bg-white/15"
+>
+  Contact CRUUZ
+  <Mail size={18} />
+</Link>
           </motion.div>
 
           <p className="mt-4 text-xs font-bold uppercase tracking-[0.22em] text-white/35">
