@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Logo from "@/components/branding/Logo";
 
 const companyLinks = [
   { label: "About CRUUZ", href: "/about" },
@@ -31,15 +32,9 @@ export default function Footer() {
         <div className="grid gap-8 xl:grid-cols-[1.05fr_1fr_1.05fr_1.65fr] xl:items-start">
           {/* BRAND */}
           <div className="xl:border-r xl:border-white/10 xl:pr-8">
-            <div className="text-2xl font-black tracking-tight">
-              <span className="bg-gradient-to-r from-sky-400 via-violet-400 to-fuchsia-400 bg-clip-text text-transparent">
-                CRUUZ
-              </span>
-            </div>
-
-            <div className="mt-1 text-[10px] font-black uppercase tracking-[0.32em] text-slate-500">
-              A better way to get there.
-            </div>
+            <Link href="/" aria-label="CRUUZ Home" className="inline-block max-w-full">
+              <Logo width={240} />
+            </Link>
 
             <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-2">
               <span className="font-extrabold text-white">

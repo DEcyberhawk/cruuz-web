@@ -1,26 +1,22 @@
 import Image from "next/image";
 
 type LogoProps = {
-  size?: number;
+  width?: number;
   priority?: boolean;
 };
 
-export default function Logo({
-  size = 70,
-  priority = false,
-}: LogoProps) {
+/** The approved full CRUUZ wordmark and tagline, preserved without cropping. */
+export default function Logo({ width = 204, priority = false }: LogoProps) {
   return (
     <Image
-      src="/assets/logos/CRUUZ_logo.png"
-      alt="CRUUZ Logo"
-      width={size}
-      height={size}
+      src="/assets/brand/cruuz-full-logo.png"
+      alt="CRUUZ — A better way to get there."
+      width={2048}
+      height={682}
       priority={priority}
-      style={{
-        width: "auto",
-        height: "auto",
-      }}
-      className="object-contain select-none"
+      sizes={`${width}px`}
+      style={{ width, maxWidth: "100%", height: "auto" }}
+      className="block object-contain select-none"
     />
   );
 }
